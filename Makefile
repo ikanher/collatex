@@ -1,4 +1,10 @@
-.PHONY: dev dev-backend dev-collab test lint typecheck fmt check-node
+.PHONY: up down dev dev-backend dev-collab test lint typecheck fmt check-node
+
+up:
+	docker compose up --build -d
+
+down:
+	docker compose down
 
 # Run both backend and Yjs websocket together
 dev:

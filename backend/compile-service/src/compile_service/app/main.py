@@ -2,20 +2,21 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
-from typing import Any, Dict, Callable, Awaitable
+from typing import Any, Awaitable, Callable, Dict
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from .jobs import JOBS, enqueue, JobStatus
+from .config import max_upload_bytes
+from .jobs import JOBS, JobStatus, enqueue
 from .logging import configure_logging, request_id_var
 from .models import CompileRequest, CompileResponse
 from .security import contains_forbidden_tex
 from .worker import start_worker
 
-MAX_UPLOAD_BYTES = 2 * 1024 * 1024
+MAX_UPLOAD_BYTES = max_upload_bytes()
 
 configure_logging()
 
@@ -87,6 +88,8 @@ async def job_status(job_id: str) -> JSONResponse:
         'finishedAt': job.finished_at,
         'error': job.error,
     }
+    if job.logs:
+        body['logs'] = job.logs
     if job.pdf_path:
         body['pdfUrl'] = f'/pdf/{job_id}'
     return JSONResponse(content=body)

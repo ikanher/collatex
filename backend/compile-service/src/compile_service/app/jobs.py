@@ -26,6 +26,7 @@ class Job:
     finished_at: Optional[str] = None
     error: Optional[str] = None
     pdf_path: Optional[str] = None
+    logs: Optional[str] = None
 
 
 JOBS: Dict[str, Job] = {}
