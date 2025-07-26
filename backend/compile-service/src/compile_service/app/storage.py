@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
+
+from .config import artifacts_dir as _artifacts_dir
 
 
 def artifacts_dir() -> Path:
-    base = os.getenv('ARTIFACTS_DIR', 'var/artifacts')
-    return Path(base).absolute()
+    """Return the directory where compiled PDFs are stored."""
+    return _artifacts_dir()
