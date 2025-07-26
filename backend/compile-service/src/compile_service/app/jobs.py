@@ -17,7 +17,7 @@ class JobStatus(str, Enum):
     ERROR = 'error'
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Job:
     req: CompileRequest
     status: JobStatus = JobStatus.QUEUED
