@@ -1,0 +1,27 @@
+# Vim
+*~
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pytest_cache/
+.venv/
+.uv/
+dist/
+build/
+.coverage
+htmlcov/
+uv.lock
+
+# Node
+node_modules/
+pnpm-lock.yaml
+npm-debug.log*
+yarn.lock
+
+# Artifacts
+var/
+*.pdf
+*.log

@@ -22,5 +22,6 @@ members = [
 dev = [
     "mypy>=1.17.0",
     "pytest>=8.4.1",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.12.5",
 ]
