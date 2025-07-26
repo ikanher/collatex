@@ -11,6 +11,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from .jobs import JOBS, enqueue
 from .models import CompileRequest, CompileResponse
 
+MAX_UPLOAD_MB = int(os.getenv('MAX_UPLOAD_MB', '5'))
+
 app = FastAPI(title='CollaTeX Compile Service', version='0.1.0')
 
 # Dev CORS defaults; tighten in prod.
@@ -30,10 +32,8 @@ def healthz() -> Dict[str, str]:
 
 @app.post('/compile', response_model=CompileResponse, status_code=202)
 def compile_endpoint(req: CompileRequest) -> CompileResponse:
-    try:
-        job_id = enqueue(req)
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve)) from ve
+    _validate_request(req)
+    job_id = enqueue(req)
     return CompileResponse(jobId=job_id)
 
 
@@ -42,9 +42,10 @@ def job_status(job_id: str) -> JSONResponse:
     job = JOBS.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail='job not found')
-
     body: Dict[str, Any] = {
+        'jobId': job_id,
         'status': job.status,
+        'queuedAt': job.queued_at,
         'startedAt': job.started_at,
         'finishedAt': job.finished_at,
         'error': job.error,
@@ -67,3 +68,31 @@ def get_pdf(job_id: str) -> FileResponse:
         filename=f'{job_id}.pdf',
         headers=headers,
     )
+
+def _validate_request(req: CompileRequest) -> None:
+    if req.engine != 'tectonic':
+        raise HTTPException(status_code=400, detail='unsupported engine')
+
+    if not any(f.path == req.entryFile for f in req.files):
+        raise HTTPException(status_code=400, detail='entryFile not in files')
+
+    seen = set()
+    total_bytes = 0
+    for f in req.files:
+        p = Path(f.path)
+        if f.path.startswith('/') or '..' in p.parts:
+            raise HTTPException(status_code=400, detail=f'invalid path: {f.path}')
+        if f.path in seen:
+            raise HTTPException(status_code=400, detail=f'duplicate path: {f.path}')
+        seen.add(f.path)
+        try:
+            raw = base64.b64decode(f.contentBase64, validate=True)
+        except Exception:
+            raise HTTPException(status_code=400, detail=f'invalid base64 for {f.path}')
+        if b'\\write18' in raw:
+            raise HTTPException(status_code=422, detail='shell escape not allowed')
+        total_bytes += len(raw)
+
+    if total_bytes > MAX_UPLOAD_MB * 1024 * 1024:
+        raise HTTPException(status_code=413, detail='payload too large')
+

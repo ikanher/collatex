@@ -1,69 +1,30 @@
 from __future__ import annotations
+import base64
+from fastapi.testclient import TestClient
+from compile_service.app.main import app
 
-import shutil
-from pathlib import Path
-from typing import Any, Dict, Optional
+client = TestClient(app)
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+def test_healthz():
+    r = client.get('/healthz')
+    assert r.status_code == 200
+    assert r.json() == {'status': 'ok'}
 
-from .jobs import JOBS, enqueue
-from .models import CompileRequest, CompileResponse
-
-app = FastAPI(title='CollaTeX Compile Service', version='0.1.0')
-
-# Dev CORS defaults; tighten in prod.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=['*'],
-    allow_credentials=False,
-    allow_methods=['*'],
-    allow_headers=['*'],
-)
-
-
-@app.get('/healthz')
-def healthz() -> Dict[str, str]:
-    return {'status': 'ok'}
-
-
-@app.post('/compile', response_model=CompileResponse, status_code=202)
-def compile_endpoint(req: CompileRequest) -> CompileResponse:
-    try:
-        job_id = enqueue(req)
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve)) from ve
-    return CompileResponse(jobId=job_id)
-
-
-@app.get('/jobs/{job_id}')
-def job_status(job_id: str) -> JSONResponse:
-    job = JOBS.get(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail='job not found')
-
-    body: Dict[str, Any] = {
-        'status': job.status,
-        'startedAt': job.started_at,
-        'finishedAt': job.finished_at,
-        'error': job.error,
+def test_compile_and_job_status():
+    payload = {
+        'projectId': 'doc-123',
+        'entryFile': 'main.tex',
+        'engine': 'tectonic',
+        'files': [{'path': 'main.tex', 'contentBase64': base64.b64encode(b'\\documentclass{article}').decode()}],
+        'options': {'synctex': False, 'maxSeconds': 5, 'maxMemoryMb': 512},
     }
-    if job.pdf_path:
-        body['pdfUrl'] = f'/pdf/{job_id}'
-    return JSONResponse(content=body)
+    r = client.post('/compile', json=payload)
+    assert r.status_code == 202
+    job_id = r.json()['jobId']
 
+    r2 = client.get(f'/jobs/{job_id}')
+    assert r2.status_code == 200
+    body = r2.json()
+    assert body['jobId'] == job_id
+    assert body['status'] in {'queued', 'running', 'done', 'error'}
 
-@app.get('/pdf/{job_id}')
-def get_pdf(job_id: str) -> FileResponse:
-    job = JOBS.get(job_id)
-    if not job or not job.pdf_path or not Path(job.pdf_path).exists():
-        raise HTTPException(status_code=404, detail='pdf not found')
-    # Hint for clients
-    headers = {'Cache-Control': 'no-store'}
-    return FileResponse(
-        path=str(job.pdf_path),
-        media_type='application/pdf',
-        filename=f'{job_id}.pdf',
-        headers=headers,
-    )
