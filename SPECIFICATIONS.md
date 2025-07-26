@@ -107,7 +107,7 @@ const ytext = doc.getText('content')
 ## 3) Non-functional requirements
 - **Latency:** compile request acknowledged within 100ms (job queued).
 - **Timeouts:** default soft 5s compile CPU; hard 10s wall.
-- **Payload limits:** 2 MiB per request (tune later).
+- **Payload limits:** 5 MiB per request (tune later).
 - **Resource use:** temp workspace ≤ 50 MiB.
 - **Observability:** counters for compile success/fail; duration histograms.
 

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-import shutil
+import os
+import base64
+
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
