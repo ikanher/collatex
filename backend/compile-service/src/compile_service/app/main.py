@@ -1,23 +1,29 @@
 from __future__ import annotations
 
-import os
 import base64
-
+import json
 from pathlib import Path
 from typing import Any, Dict
+from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
+from typing import Callable, Awaitable
 
 from .jobs import JOBS, enqueue
+from .logging import configure_logging, request_id_var
 from .models import CompileRequest, CompileResponse
+from .security import contains_forbidden_tex
+from .worker import start_worker  # ensure worker thread starts
 
-MAX_UPLOAD_MB = int(os.getenv('MAX_UPLOAD_MB', '5'))
+MAX_UPLOAD_BYTES = 2 * 1024 * 1024
+
+configure_logging()
+start_worker()
 
 app = FastAPI(title='CollaTeX Compile Service', version='0.1.0')
 
-# Dev CORS defaults; tighten in prod.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['*'],
@@ -27,26 +33,52 @@ app.add_middleware(
 )
 
 
+@app.middleware('http')
+async def add_request_id(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    request_id = request.headers.get('X-Request-Id') or str(uuid4())
+    token = request_id_var.set(request_id)
+    try:
+        response = await call_next(request)
+    finally:
+        request_id_var.reset(token)
+    response.headers['X-Request-Id'] = request_id
+    return response
+
+
 @app.get('/healthz')
-def healthz() -> Dict[str, str]:
+async def healthz() -> Dict[str, str]:
     return {'status': 'ok'}
 
 
 @app.post('/compile', response_model=CompileResponse, status_code=202)
-def compile_endpoint(req: CompileRequest) -> CompileResponse:
+async def compile_endpoint(request: Request) -> CompileResponse:
+    body = await request.body()
+    if len(body) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail='payload too large')
+    try:
+        data = json.loads(body)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail='invalid JSON') from exc
+    try:
+        req = CompileRequest.model_validate(data)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail='validation error') from exc
+
     _validate_request(req)
     job_id = enqueue(req)
     return CompileResponse(jobId=job_id)
 
 
 @app.get('/jobs/{job_id}')
-def job_status(job_id: str) -> JSONResponse:
+async def job_status(job_id: str) -> JSONResponse:
     job = JOBS.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail='job not found')
     body: Dict[str, Any] = {
         'jobId': job_id,
-        'status': job.status,
+        'status': job.status.value,
         'queuedAt': job.queued_at,
         'startedAt': job.started_at,
         'finishedAt': job.finished_at,
@@ -58,11 +90,10 @@ def job_status(job_id: str) -> JSONResponse:
 
 
 @app.get('/pdf/{job_id}')
-def get_pdf(job_id: str) -> FileResponse:
+async def get_pdf(job_id: str) -> FileResponse:
     job = JOBS.get(job_id)
     if not job or not job.pdf_path or not Path(job.pdf_path).exists():
         raise HTTPException(status_code=404, detail='pdf not found')
-    # Hint for clients
     headers = {'Cache-Control': 'no-store'}
     return FileResponse(
         path=str(job.pdf_path),
@@ -70,6 +101,7 @@ def get_pdf(job_id: str) -> FileResponse:
         filename=f'{job_id}.pdf',
         headers=headers,
     )
+
 
 def _validate_request(req: CompileRequest) -> None:
     if req.engine != 'tectonic':
@@ -89,12 +121,11 @@ def _validate_request(req: CompileRequest) -> None:
         seen.add(f.path)
         try:
             raw = base64.b64decode(f.contentBase64, validate=True)
-        except Exception:
-            raise HTTPException(status_code=400, detail=f'invalid base64 for {f.path}')
-        if b'\\write18' in raw:
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f'invalid base64 for {f.path}') from exc
+        if contains_forbidden_tex(raw):
             raise HTTPException(status_code=422, detail='shell escape not allowed')
         total_bytes += len(raw)
 
-    if total_bytes > MAX_UPLOAD_MB * 1024 * 1024:
+    if total_bytes > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail='payload too large')
-

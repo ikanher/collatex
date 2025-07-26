@@ -1,26 +1,39 @@
+from __future__ import annotations
+
+import queue
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Dict, Optional
+
 from .models import CompileRequest
+
+
+class JobStatus(str, Enum):
+    QUEUED = 'queued'
+    RUNNING = 'running'
+    DONE = 'done'
+    ERROR = 'error'
+
 
 @dataclass
 class Job:
-    status: str = 'queued'
+    req: CompileRequest
+    status: JobStatus = JobStatus.QUEUED
     queued_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
     error: Optional[str] = None
     pdf_path: Optional[str] = None
 
+
 JOBS: Dict[str, Job] = {}
+JOB_QUEUE: queue.Queue[str] = queue.Queue()
+
 
 def enqueue(req: CompileRequest) -> str:
     job_id = str(uuid.uuid4())
-    job = Job()
-    # Stub: complete immediately until compiler is wired
-    job.status = 'done'
-    job.started_at = job.queued_at
-    job.finished_at = job.queued_at
-    JOBS[job_id] = job
+    JOBS[job_id] = Job(req=req)
+    JOB_QUEUE.put(job_id)
     return job_id
