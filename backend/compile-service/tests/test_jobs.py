@@ -3,8 +3,6 @@ import time
 from fastapi.testclient import TestClient
 from compile_service.app.main import app
 
-client = TestClient(app)
-
 
 def payload() -> dict:
     return {
@@ -22,15 +20,16 @@ def payload() -> dict:
 
 
 def test_job_lifecycle() -> None:
-    r = client.post('/compile', json=payload())
-    assert r.status_code == 202
-    job_id = r.json()['jobId']
+    with TestClient(app) as client:
+        r = client.post('/compile', json=payload())
+        assert r.status_code == 202
+        job_id = r.json()['jobId']
 
-    r2 = client.get(f'/jobs/{job_id}')
-    assert r2.status_code == 200
-    assert r2.json()['status'] in {'queued', 'running', 'done', 'error'}
+        r2 = client.get(f'/jobs/{job_id}')
+        assert r2.status_code == 200
+        assert r2.json()['status'] in {'queued', 'running', 'done', 'error'}
 
-    time.sleep(0.3)
-    r3 = client.get(f'/jobs/{job_id}')
-    assert r3.status_code == 200
-    assert r3.json()['status'] == 'done'
+        time.sleep(0.3)
+        r3 = client.get(f'/jobs/{job_id}')
+        assert r3.status_code == 200
+        assert r3.json()['status'] == 'done'

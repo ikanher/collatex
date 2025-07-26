@@ -25,6 +25,3 @@ def _worker_loop() -> None:
 def start_worker() -> None:
     thread = threading.Thread(target=_worker_loop, daemon=True)
     thread.start()
-
-
-start_worker()

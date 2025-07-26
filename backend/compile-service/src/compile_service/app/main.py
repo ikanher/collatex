@@ -1,28 +1,30 @@
 from __future__ import annotations
 
 import base64
-import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Callable, Awaitable
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
-from typing import Callable, Awaitable
 
-from .jobs import JOBS, enqueue
+from .jobs import JOBS, enqueue, JobStatus
 from .logging import configure_logging, request_id_var
 from .models import CompileRequest, CompileResponse
 from .security import contains_forbidden_tex
-from .worker import start_worker  # ensure worker thread starts
+from .worker import start_worker
 
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024
 
 configure_logging()
-start_worker()
 
 app = FastAPI(title='CollaTeX Compile Service', version='0.1.0')
+
+
+@app.on_event('startup')
+def launch_worker() -> None:
+    start_worker()
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,20 +54,21 @@ async def healthz() -> Dict[str, str]:
     return {'status': 'ok'}
 
 
-@app.post('/compile', response_model=CompileResponse, status_code=202)
-async def compile_endpoint(request: Request) -> CompileResponse:
+async def _parse_compile_request(request: Request) -> CompileRequest:
+    length = request.headers.get('content-length')
+    if length and int(length) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail='payload too large')
     body = await request.body()
     if len(body) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail='payload too large')
     try:
-        data = json.loads(body)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail='invalid JSON') from exc
-    try:
-        req = CompileRequest.model_validate(data)
+        return CompileRequest.model_validate_json(body)
     except Exception as exc:
         raise HTTPException(status_code=400, detail='validation error') from exc
 
+
+@app.post('/compile', response_model=CompileResponse, status_code=202)
+async def compile_endpoint(req: CompileRequest = Depends(_parse_compile_request)) -> CompileResponse:
     _validate_request(req)
     job_id = enqueue(req)
     return CompileResponse(jobId=job_id)
@@ -90,17 +93,19 @@ async def job_status(job_id: str) -> JSONResponse:
 
 
 @app.get('/pdf/{job_id}')
-async def get_pdf(job_id: str) -> FileResponse:
+async def get_pdf(job_id: str) -> Response:
     job = JOBS.get(job_id)
-    if not job or not job.pdf_path or not Path(job.pdf_path).exists():
+    if not job or job.status != JobStatus.DONE:
         raise HTTPException(status_code=404, detail='pdf not found')
-    headers = {'Cache-Control': 'no-store'}
-    return FileResponse(
-        path=str(job.pdf_path),
-        media_type='application/pdf',
-        filename=f'{job_id}.pdf',
-        headers=headers,
-    )
+    headers = {'Cache-Control': 'no-store', 'ETag': '"stub"'}
+    if job.pdf_path and Path(job.pdf_path).exists():
+        return FileResponse(
+            path=str(job.pdf_path),
+            media_type='application/pdf',
+            filename=f'{job_id}.pdf',
+            headers=headers,
+        )
+    return Response(status_code=404, headers=headers)
 
 
 def _validate_request(req: CompileRequest) -> None:
