@@ -5,13 +5,9 @@ This service compiles LaTeX sources to PDF using Tectonic.
 ## Running locally
 
 ```bash
-make up          # build image and start service at http://localhost:8000
-```
-
-Stop with:
-
-```bash
-make down
+make dev-redis &
+make dev-worker &
+make dev-backend
 ```
 
 To test Redis-backed persistence locally:

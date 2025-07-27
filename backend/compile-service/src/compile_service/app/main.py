@@ -18,8 +18,9 @@ from .state import get_job, init as state_init
 from ..logging import configure_logging
 from .middleware import RequestIdMiddleware
 from .models import CompileRequest, CompileResponse
+from .. import queue
+from .worker import start_worker, stop_worker
 from .security import contains_forbidden_tex
-from .worker import start_worker
 
 MAX_UPLOAD_BYTES = max_upload_bytes()
 
@@ -36,12 +37,15 @@ async def setup_redis() -> None:
         client = redis.from_url(url)  # type: ignore[no-untyped-call]
         await client.ping()
         state_init(client)
+        queue.init(client)
         app.state.redis = client
 
 
 @app.on_event('startup')
 def launch_worker() -> None:
-    start_worker()
+    if os.getenv('COLLATEX_STATE', 'memory') != 'redis':
+        start_worker()
+        app.state.worker_stop = stop_worker
 
 
 @app.on_event('shutdown')
@@ -49,6 +53,9 @@ async def close_redis() -> None:
     client = getattr(app.state, 'redis', None)
     if client is not None:
         await client.close()
+    stop = getattr(app.state, 'worker_stop', None)
+    if stop is not None:
+        stop()
 
 
 app.add_middleware(

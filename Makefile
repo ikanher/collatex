@@ -17,10 +17,13 @@ dev-backend:
 
 # Collab websocket (pin y-websocket and auto-confirm with -y)
 dev-collab: check-node
-        npx -y y-websocket@1.5.0 --port 1234 --ping-timeout 30000
+	npx -y y-websocket@1.5.0 --port 1234 --ping-timeout 30000
 
 dev-redis:
-        docker run --rm -p 6379:6379 redis:7-alpine
+	docker run --rm -p 6379:6379 redis:7-alpine
+
+dev-worker:
+	cd backend/compile-service && uv run compile_service.worker:main
 
 # Always use dev group tools (pytest-xdist, ruff, mypy)
 test:
