@@ -57,6 +57,12 @@ Do **not** open `index.html` directly with `file://`. Always run `npm run dev` o
 use the Dockerised frontend at `http://localhost:5173` so CORS and relative paths
 work correctly.
 
+## Installing dev deps
+
+```bash
+uv pip install -e backend/compile-service[dev]
+```
+
 ## Architecture
 ```mermaid
 graph TD
@@ -76,6 +82,11 @@ WebSocket URL must include `token=<token>`.
 `COLLATEX_ALLOWED_ORIGINS` controls which frontend URLs may access the backend.
 The default is `http://localhost:5173`. Set it to a comma-separated list of
 origins when deploying.
+
+## Rate limits
+
+Each API token may send up to 20 compile requests per hour by default.
+Set `COLLATEX_RATE_LIMIT=20` to adjust the limit.
 
 ## Troubleshooting
 

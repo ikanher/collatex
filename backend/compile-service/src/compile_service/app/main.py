@@ -19,6 +19,7 @@ from .state import get_job, init as state_init
 from ..logging import configure_logging
 from .middleware import RequestIdMiddleware
 from ..auth import verify_token
+from .rate_limit import rate_limit
 from .models import CompileRequest, CompileResponse
 from .. import queue
 from .worker import start_worker, stop_worker
@@ -95,7 +96,8 @@ async def auth_middleware(
     if path == '/healthz' or path.startswith('/metrics'):
         return await call_next(request)
     try:
-        await verify_token(request)
+        token = await verify_token(request)
+        request.state.token = token
     except HTTPException as exc:
         return JSONResponse(status_code=exc.status_code, content={'detail': exc.detail})
     return await call_next(request)
@@ -126,6 +128,7 @@ async def _parse_compile_request(request: Request) -> CompileRequest:
 @app.post('/compile', response_model=CompileResponse, status_code=202)
 async def compile_endpoint(
     req: CompileRequest = Depends(_parse_compile_request),
+    _: None = Depends(rate_limit),
 ) -> CompileResponse:
     _validate_request(req)
     job_id = await enqueue(req)
