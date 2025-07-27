@@ -128,8 +128,8 @@ async def job_status(job_id: str) -> JSONResponse:
         'finishedAt': job.finished_at,
         'error': job.error,
     }
-    if job.logs:
-        body['logs'] = job.logs
+    if job.compile_log and job.status in {JobStatus.ERROR, JobStatus.DONE}:
+        body['log'] = job.compile_log
     if job.pdf_bytes:
         body['pdfUrl'] = f'/pdf/{job_id}'
     return JSONResponse(content=body)

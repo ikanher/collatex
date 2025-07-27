@@ -12,9 +12,9 @@ export async function startCompile(tex: string): Promise<string> {
   return res.data.jobId as string;
 }
 
-export async function pollJob(jobId: string): Promise<{ status: CompileStatus }> {
+export async function pollJob(jobId: string): Promise<{ status: CompileStatus; log?: string }> {
   const res = await api.get(`/jobs/${jobId}`);
-  return res.data as { status: CompileStatus };
+  return res.data as { status: CompileStatus; log?: string };
 }
 
 export async function fetchPdf(jobId: string): Promise<Blob> {

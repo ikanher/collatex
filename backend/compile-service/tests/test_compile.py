@@ -93,4 +93,4 @@ def test_compile_error(app) -> None:
                 break
             time.sleep(0.2)
         assert resp.json()['status'] == 'error'
-        assert resp.json()['logs']
+        assert resp.json()['log']

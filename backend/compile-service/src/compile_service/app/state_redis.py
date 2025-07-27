@@ -50,6 +50,7 @@ async def get_job(job_id: str) -> Optional['Job']:
         started_at=strmap.get('started_at') or None,
         finished_at=strmap.get('finished_at') or None,
         error=strmap.get('error') or None,
+        compile_log=strmap.get('log') or None,
     )
     pdf = await _REDIS.get(f'{_PREFIX}{job_id}:pdf')
     if pdf:
@@ -65,6 +66,8 @@ async def update_job_status(job_id: str, status: 'JobStatus', **updates: str | b
         val = updates.get(key)
         if val is not None:
             mapping[key] = str(val)
+    if 'compile_log' in updates and updates['compile_log'] is not None:
+        mapping['log'] = str(updates['compile_log'])
     if 'metadata' in updates and updates['metadata'] is not None:
         mapping['metadata'] = str(updates['metadata'])
     _ = await cast(Any, _REDIS.hset(f'{_PREFIX}{job_id}', mapping=mapping))

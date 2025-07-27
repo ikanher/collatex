@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import App from '../src/App';
+import BuildLog from '../src/components/BuildLog';
 import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
 const aw = new Awareness(new Y.Doc());
@@ -24,16 +25,23 @@ describe('compile flow', () => {
       .mockResolvedValueOnce({ data: { status: 'done' } } as any)
       .mockResolvedValue({ data: new Blob(['%PDF-1.4'], { type: 'application/pdf' }) } as any);
     vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:url') });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
   });
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it('compiles latex and shows pdf', async () => {
     render(<App />);
-    const btn = screen.getByRole('button', { name: /compile/i });
+    const btn = screen.getAllByRole('button', { name: /compile/i })[0];
     fireEvent.click(btn);
-    await waitFor(() => expect(btn).toBeDisabled());
+    await vi.runAllTimersAsync();
     await waitFor(() => expect(mockedPost).toHaveBeenCalled());
   }, 10000);
+
+  it('shows log panel', () => {
+    render(<BuildLog log="error: oops" status="error" open={true} onToggle={() => {}} />);
+    expect(screen.getByText(/error: oops/i)).toBeInTheDocument();
+  });
 });

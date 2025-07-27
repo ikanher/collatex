@@ -28,7 +28,7 @@ class Job:
     error: Optional[str] = None
     pdf_bytes: Optional[bytes] = None
     pdf_path: Optional[str] = None
-    logs: Optional[str] = None
+    compile_log: Optional[str] = None
 
 
 async def enqueue(req: CompileRequest) -> str:

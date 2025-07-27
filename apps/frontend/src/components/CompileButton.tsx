@@ -6,9 +6,11 @@ interface Props {
   room: string;
   onPdf: (url: string) => void;
   onToast: (msg: string) => void;
+  onLog: (log: string | null) => void;
+  onStatus: (st: CompileStatus | 'idle') => void;
 }
 
-const CompileButton: React.FC<Props> = ({ room, onPdf, onToast }) => {
+const CompileButton: React.FC<Props> = ({ room, onPdf, onToast, onLog, onStatus }) => {
   const { ytext } = useCollabDoc(room);
   const [status, setStatus] = useState<CompileStatus | 'idle'>('idle');
 
@@ -16,13 +18,17 @@ const CompileButton: React.FC<Props> = ({ room, onPdf, onToast }) => {
     try {
       const jobId = await startCompile(ytext.toString());
       setStatus('queued');
+      onStatus('queued');
       let result = await pollJob(jobId);
       while (result.status === 'queued' || result.status === 'running') {
         setStatus(result.status);
+        onStatus(result.status);
         await new Promise((r) => setTimeout(r, 700));
         result = await pollJob(jobId);
       }
       setStatus(result.status);
+      onStatus(result.status);
+      onLog(result.log || null);
       if (result.status === 'done') {
         const blob = await fetchPdf(jobId);
         const url = URL.createObjectURL(blob);
@@ -33,6 +39,7 @@ const CompileButton: React.FC<Props> = ({ room, onPdf, onToast }) => {
     } catch (err) {
       onToast('error');
       setStatus('idle');
+      onStatus('idle');
     }
   };
 
