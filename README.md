@@ -57,3 +57,18 @@ make dev-frontend
 ```
 
 Set `ALLOWED_ORIGINS` to comma-separated hosts for CORS.
+
+### Frontend
+
+```
+VITE_API_URL=http://localhost:8080
+VITE_WS_URL=ws://localhost:1234
+```
+
+Start the SPA:
+
+```bash
+npm run dev --workspace apps/frontend
+```
+
+Then open http://localhost:5173.
