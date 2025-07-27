@@ -3,15 +3,33 @@ from __future__ import annotations
 import base64
 import subprocess
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import structlog
+from prometheus_client import Counter, Histogram
+
 from .app.jobs import Job, JobStatus
+from .logging import job_id_var
+
+logger = structlog.get_logger(__name__)
+
+COMPILE_COUNTER = Counter(
+    'collatex_compile_total',
+    'Total compile operations',
+    labelnames=['status'],
+)
+COMPILE_DURATION = Histogram(
+    'collatex_compile_duration_seconds',
+    'Duration of compile jobs in seconds',
+)
 
 
 def run_compile(job: Job) -> None:
     job.status = JobStatus.RUNNING
     job.started_at = datetime.now(timezone.utc).isoformat()
+    start = time.perf_counter()
 
     with tempfile.TemporaryDirectory(prefix='ctex_') as tmpdir:
         workdir = Path(tmpdir)
@@ -58,3 +76,12 @@ def run_compile(job: Job) -> None:
             job.error = stderr[:4000].decode(errors='replace') if stderr else 'timeout'
         finally:
             job.finished_at = datetime.now(timezone.utc).isoformat()
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            COMPILE_COUNTER.labels(status=job.status.value).inc()
+            COMPILE_DURATION.observe(duration_ms / 1000)
+            logger.info(
+                'compile_finished',
+                job_id=job_id_var.get(''),
+                status=job.status.value,
+                duration_ms=duration_ms,
+            )
