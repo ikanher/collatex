@@ -3,6 +3,11 @@ import '@testing-library/jest-dom/vitest';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import App from '../src/App';
 import BuildLog from '../src/components/BuildLog';
+vi.mock('react-pdf', () => ({
+  Document: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Page: () => <canvas data-testid="pdf-canvas" />,
+  pdfjs: { GlobalWorkerOptions: { workerSrc: '' } }
+}));
 import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
 const aw = new Awareness(new Y.Doc());
@@ -38,6 +43,7 @@ describe('compile flow', () => {
     fireEvent.click(btn);
     await vi.runAllTimersAsync();
     await waitFor(() => expect(mockedPost).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId('pdf-canvas')).toBeInTheDocument());
   }, 10000);
 
   it('shows log panel', () => {

@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import max_upload_bytes
 from .jobs import JobStatus, enqueue
@@ -59,13 +60,29 @@ async def close_redis() -> None:
         stop()
 
 
+origins = os.getenv('COLLATEX_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],
-    allow_credentials=False,
+    allow_origins=origins,
+    allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],
 )
+
+
+class PreflightMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app: FastAPI, allowed: list[str]):
+        super().__init__(app)
+        self.allowed = set(allowed)
+
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        if request.method == 'OPTIONS':
+            origin = request.headers.get('origin')
+            if origin and origin not in self.allowed:
+                return Response(status_code=403)
+        return await call_next(request)
+
+app.add_middleware(PreflightMiddleware, allowed=origins)  # type: ignore[arg-type]
 
 app.add_middleware(RequestIdMiddleware)
 
