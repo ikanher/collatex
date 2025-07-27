@@ -3,7 +3,7 @@
 from __future__ import annotations
 import base64
 from pathlib import Path
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -29,7 +29,14 @@ class FileItem(BaseModel):
 class CompileOptions(BaseModel):
     synctex: bool = False
     maxSeconds: int = 5
-    maxMemoryMb: int = 512
+    maxMemoryMb: Optional[int] = 512
+
+    @field_validator('maxMemoryMb')
+    @classmethod
+    def _check_mem(cls, v: int | None) -> int | None:
+        if v is not None and not (64 <= v <= 1024):
+            raise ValueError('maxMemoryMb must be between 64 and 1024')
+        return v
 
 
 class CompileRequest(BaseModel):

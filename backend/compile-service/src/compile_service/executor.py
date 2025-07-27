@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import subprocess
+import signal
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -12,6 +13,7 @@ from prometheus_client import Counter, Histogram
 
 from .app.jobs import Job, JobStatus
 from .logging import job_id_var
+from .sandbox import apply_limits
 
 logger = structlog.get_logger(__name__)
 
@@ -48,36 +50,55 @@ def run_compile(job: Job) -> None:
             'out',
             job.req.entryFile,
         ]
+        limit_hit = False
         try:
-            proc = subprocess.run(
+            proc = subprocess.Popen(
                 cmd,
                 cwd=workdir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                timeout=job.req.options.maxSeconds,
+                preexec_fn=lambda: apply_limits(
+                    job.req.options.maxSeconds,
+                    job.req.options.maxMemoryMb or 512,
+                ),
             )
-            job.logs = (proc.stdout + proc.stderr).decode(errors='replace')
-            if proc.returncode == 0:
-                pdf_path = out_dir / (Path(job.req.entryFile).stem + '.pdf')
-                if pdf_path.exists():
-                    job.pdf_bytes = pdf_path.read_bytes()
-                    job.status = JobStatus.DONE
-                else:
-                    job.status = JobStatus.ERROR
-                    job.error = 'output missing'
-            else:
+            try:
+                stdout, stderr = proc.communicate(timeout=job.req.options.maxSeconds)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                stdout, stderr = proc.communicate()
                 job.status = JobStatus.ERROR
-                job.error = proc.stderr[:4000].decode(errors='replace')
-        except subprocess.TimeoutExpired as exc:
-            stderr = b''
-            if exc.stderr:
-                stderr = exc.stderr if isinstance(exc.stderr, bytes) else exc.stderr.encode()
+                job.error = 'timeout'
+            else:
+                job.logs = (stdout + stderr).decode(errors='replace')
+                if proc.returncode == 0:
+                    pdf_path = out_dir / (Path(job.req.entryFile).stem + '.pdf')
+                    if pdf_path.exists():
+                        job.pdf_bytes = pdf_path.read_bytes()
+                        job.status = JobStatus.DONE
+                    else:
+                        job.status = JobStatus.ERROR
+                        job.error = 'output missing'
+                else:
+                    if proc.returncode in (-signal.SIGXCPU, -signal.SIGKILL):
+                        job.status = JobStatus.ERROR
+                        job.error = 'resource limit exceeded'
+                        limit_hit = True
+                    else:
+                        job.status = JobStatus.ERROR
+                        job.error = stderr[:4000].decode(errors='replace')
+                        limit_hit = False
+        except Exception as exc:
             job.status = JobStatus.ERROR
-            job.error = stderr[:4000].decode(errors='replace') if stderr else 'timeout'
+            job.error = str(exc)
+            limit_hit = False
         finally:
             job.finished_at = datetime.now(timezone.utc).isoformat()
             duration_ms = int((time.perf_counter() - start) * 1000)
-            COMPILE_COUNTER.labels(status=job.status.value).inc()
+            if limit_hit:
+                COMPILE_COUNTER.labels(status='limit').inc()
+            else:
+                COMPILE_COUNTER.labels(status=job.status.value).inc()
             COMPILE_DURATION.observe(duration_ms / 1000)
             logger.info(
                 'compile_finished',
