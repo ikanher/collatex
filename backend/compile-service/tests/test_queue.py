@@ -2,21 +2,28 @@ import asyncio
 import importlib
 import uuid
 
-import fakeredis.aioredis
+import os
+import redis.asyncio as redis
 from compile_service.app import state
 from compile_service.app.jobs import Job, JobStatus
 from compile_service.app.models import CompileRequest, FileItem, CompileOptions
+from .helpers import require_redis
 
 
 def test_worker_processes_queue(monkeypatch) -> None:
+    require_redis()
+
     async def _run() -> None:
-        redis_server = fakeredis.aioredis.FakeRedis()
+        url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+        redis_server = redis.from_url(url)
+        await redis_server.flushdb()
         monkeypatch.setenv('COLLATEX_STATE', 'redis')
         monkeypatch.setenv('ANYIO_TEST_BACKENDS', 'asyncio')
         importlib.reload(state)
         state.init(redis_server)
         import compile_service.queue as queue
         import compile_service.worker as worker
+
         importlib.reload(queue)
         queue.init(redis_server)
 
@@ -48,5 +55,7 @@ def test_worker_processes_queue(monkeypatch) -> None:
         j2 = await state.get_job(id2)
         assert j1.status in {JobStatus.DONE, JobStatus.ERROR}
         assert j2.status in {JobStatus.DONE, JobStatus.ERROR}
+
+        await redis_server.aclose()
 
     asyncio.run(_run())
