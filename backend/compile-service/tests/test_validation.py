@@ -1,7 +1,6 @@
 import base64
 import pytest
 from fastapi.testclient import TestClient
-from compile_service.app.main import app
 
 
 def minimal_payload() -> dict:
@@ -19,7 +18,7 @@ def minimal_payload() -> dict:
     }
 
 
-def test_invalid_engine() -> None:
+def test_invalid_engine(app) -> None:
     payload = minimal_payload()
     payload['engine'] = 'latex'
     with TestClient(app) as client:
@@ -28,7 +27,7 @@ def test_invalid_engine() -> None:
     assert isinstance(resp.json()['detail'], list)
 
 
-def test_entryfile_missing() -> None:
+def test_entryfile_missing(app) -> None:
     payload = minimal_payload()
     payload['entryFile'] = 'missing.tex'
     with TestClient(app) as client:
@@ -37,7 +36,7 @@ def test_entryfile_missing() -> None:
     assert isinstance(resp.json()['detail'], list)
 
 
-def test_invalid_path() -> None:
+def test_invalid_path(app) -> None:
     payload = minimal_payload()
     payload['files'][0]['path'] = '../main.tex'
     with TestClient(app) as client:
@@ -46,7 +45,7 @@ def test_invalid_path() -> None:
     assert isinstance(resp.json()['detail'], list)
 
 
-def test_leading_slash_path() -> None:
+def test_leading_slash_path(app) -> None:
     payload = minimal_payload()
     payload['files'][0]['path'] = '/main.tex'
     with TestClient(app) as client:
@@ -54,7 +53,7 @@ def test_leading_slash_path() -> None:
     assert resp.status_code == 400
 
 
-def test_forbidden_tex() -> None:
+def test_forbidden_tex(app) -> None:
     payload = minimal_payload()
     payload['files'][0]['contentBase64'] = base64.b64encode(b'\\write18{rm -rf /}').decode()
     with TestClient(app) as client:
@@ -63,7 +62,7 @@ def test_forbidden_tex() -> None:
 
 
 @pytest.mark.parametrize('snippet', [b'\\write0{}', b'\\input{f}', b'\\openout1', b'\\read1'])
-def test_non_write18_allowed(snippet: bytes) -> None:
+def test_non_write18_allowed(app, snippet: bytes) -> None:
     payload = minimal_payload()
     payload['files'][0]['contentBase64'] = base64.b64encode(snippet).decode()
     with TestClient(app) as client:
@@ -71,7 +70,7 @@ def test_non_write18_allowed(snippet: bytes) -> None:
     assert resp.status_code == 202
 
 
-def test_payload_too_large() -> None:
+def test_payload_too_large(app) -> None:
     payload = minimal_payload()
     big = base64.b64encode(b'a' * (2 * 1024 * 1024 + 1)).decode()
     payload['files'][0]['contentBase64'] = big
@@ -80,7 +79,7 @@ def test_payload_too_large() -> None:
     assert resp.status_code == 413
 
 
-def test_json_too_large() -> None:
+def test_json_too_large(app) -> None:
     payload = minimal_payload()
     payload['pad'] = 'a' * (2 * 1024 * 1024 + 1)
     with TestClient(app) as client:

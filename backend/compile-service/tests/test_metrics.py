@@ -5,8 +5,6 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from compile_service.app.main import app
-
 
 def _payload() -> dict:
     tex = b'\\documentclass{article}\\begin{document}ok\\end{document}'
@@ -20,7 +18,7 @@ def _payload() -> dict:
 
 
 @pytest.mark.skipif(shutil.which('tectonic') is None, reason='Tectonic not installed')
-def test_compile_metrics() -> None:
+def test_compile_metrics(app) -> None:
     with TestClient(app) as client:
         resp = client.post('/compile', json=_payload())
         assert resp.status_code == 202

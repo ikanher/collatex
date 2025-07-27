@@ -1,25 +1,15 @@
 from __future__ import annotations
 
-from typing import Dict, Optional, TYPE_CHECKING
+import os
+import importlib
 
-if TYPE_CHECKING:  # pragma: no cover - type hints only
-    from .jobs import Job, JobStatus
+if os.getenv('COLLATEX_STATE', 'memory') == 'redis':
+    backend_impl = importlib.import_module('compile_service.app.state_redis')
+else:
+    backend_impl = importlib.import_module('compile_service.app.state_memory')
 
-JOBS: Dict[str, 'Job'] = {}
-
-
-def add_job(job_id: str, job: 'Job') -> None:
-    JOBS[job_id] = job
-
-
-def get_job(job_id: str) -> Optional['Job']:
-    return JOBS.get(job_id)
-
-
-def update_job_status(job_id: str, status: 'JobStatus', **updates: str | None) -> None:
-    job = JOBS.get(job_id)
-    if not job:
-        return
-    job.status = status
-    for key, value in updates.items():
-        setattr(job, key, value)
+add_job = backend_impl.add_job
+get_job = backend_impl.get_job
+update_job_status = backend_impl.update_job_status
+list_jobs = backend_impl.list_jobs
+init = getattr(backend_impl, 'init')
