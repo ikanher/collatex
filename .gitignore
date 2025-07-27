@@ -24,4 +24,5 @@ yarn.lock
 # Artifacts
 var/
 *.pdf
+!backend/compile-service/static/placeholder.pdf
 *.log

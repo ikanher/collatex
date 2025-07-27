@@ -63,6 +63,16 @@ work correctly.
 uv pip install -e backend/compile-service[dev]
 ```
 
+## Running without Docker
+
+```bash
+./scripts/dev_local.sh
+```
+
+This installs Python and Node deps locally and starts the services with
+`COLLATEX_STATE=fakeredis`. Compilation produces a stub PDF unless Tectonic is
+installed.
+
 ## Architecture
 ```mermaid
 graph TD

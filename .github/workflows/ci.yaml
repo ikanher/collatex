@@ -70,3 +70,24 @@ jobs:
         run: COLLATEX_API_TOKEN=ci-token docker compose up -d --build
       - name: Run smoke test
         run: COLLATEX_API_TOKEN=ci-token ./scripts/smoke.sh
+
+  fallback-local:
+    runs-on: ubuntu-latest
+    env:
+      COLLATEX_STATE: fakeredis
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install uv
+        run: pip install uv
+      - name: Install deps
+        run: uv pip install -e backend/compile-service[dev]
+      - name: Run smoke
+        run: |
+          unset TECTONIC_PATH
+          ./scripts/smoke.sh
