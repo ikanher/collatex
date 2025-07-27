@@ -1,0 +1,48 @@
+#!/bin/sh
+set -e
+backend=http://localhost:8080
+gateway=http://localhost:1234
+
+wait_service() {
+  url=$1
+  for i in $(seq 1 60); do
+    if curl -fs "$url" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "Timed out waiting for $url" >&2
+  return 1
+}
+
+wait_service "$backend/healthz"
+wait_service "$gateway/healthz"
+
+tex='\\documentclass{article}\\begin{document}Hi\\end{document}'
+body=$(printf '%s' "$tex" | base64 -w0)
+job=$(curl -fs -X POST "$backend/compile" \
+  -H 'Content-Type: application/json' \
+  -d '{"projectId":"demo","entryFile":"main.tex","engine":"tectonic","files":[{"path":"main.tex","contentBase64":"'$body'"}]}' | jq -r '.jobId')
+
+if [ -z "$job" ] || [ "$job" = "null" ]; then
+  echo "Failed to get job id" >&2
+  exit 1
+fi
+
+for i in $(seq 1 60); do
+  status=$(curl -fs "$backend/jobs/$job" | jq -r '.status')
+  if [ "$status" = "done" ]; then
+    break
+  fi
+  sleep 1
+  [ "$status" = "error" ] && break
+done
+
+if [ "$status" != "done" ]; then
+  echo "Job failed or timed out: $status" >&2
+  exit 1
+fi
+
+curl -fs "$backend/pdf/$job" -o /tmp/out.pdf
+grep -q '%PDF' /tmp/out.pdf
+

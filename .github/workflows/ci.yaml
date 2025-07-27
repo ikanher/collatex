@@ -59,3 +59,14 @@ jobs:
         run: |
           npm run lint --workspace apps/frontend
           npm run test --workspace apps/frontend
+  e2e:
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start stack
+        run: docker compose up -d --build
+      - name: Run smoke test
+        run: ./scripts/smoke.sh

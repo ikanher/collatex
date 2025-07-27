@@ -1,10 +1,26 @@
-version: '3'
+version: "3.9"
 services:
-  compile-service:
-    build: .
-    ports:
-      - "8000:8000"
-    volumes:
-      - .:/app
-    working_dir: /app/backend/compile-service
-    command: uvicorn compile_service.app.main:app --host 0.0.0.0 --port 8000
+  redis:
+    image: redis:7-alpine
+  backend:
+    build: ./backend/compile-service
+    environment:
+      COLLATEX_STATE: redis
+      REDIS_URL: redis://redis:6379
+    ports: ["8080:8080"]
+  worker:
+    build: ./backend/compile-service
+    entrypoint: ["uv", "run", "compile_service.worker:main"]
+    environment:
+      COLLATEX_STATE: redis
+      REDIS_URL: redis://redis:6379
+  gateway:
+    build: ./apps/collab_gateway
+    environment:
+      PORT: 1234
+      ALLOWED_ORIGINS: localhost
+    ports: ["1234:1234"]
+  frontend:
+    build: ./apps/frontend
+    ports: ["5173:80"]
+
