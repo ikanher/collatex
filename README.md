@@ -69,3 +69,8 @@ graph TD
 Set `COLLATEX_API_TOKEN` in your `.env` and pass the same value in the frontend
 settings dialog. The compile API expects `Authorization: Bearer <token>` and the
 WebSocket URL must include `token=<token>`.
+
+## Troubleshooting
+
+If a compile fails, open the **Build Log** panel under the PDF viewer. It
+captures the last part of the Tectonic output so you can spot LaTeX errors.

@@ -70,7 +70,8 @@ def run_compile(job: Job) -> None:
                 job.status = JobStatus.ERROR
                 job.error = 'timeout'
             else:
-                job.logs = (stdout + stderr).decode(errors='replace')
+                combined = (stdout + stderr).decode(errors='replace')
+                job.compile_log = combined[-32_000:]
                 if proc.returncode == 0:
                     pdf_path = out_dir / (Path(job.req.entryFile).stem + '.pdf')
                     if pdf_path.exists():

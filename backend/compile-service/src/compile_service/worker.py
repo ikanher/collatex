@@ -52,6 +52,7 @@ async def _process(item: Dict[str, Any]) -> None:
             finished_at=job.finished_at,
             error=job.error,
             pdf_bytes=job.pdf_bytes,
+            compile_log=job.compile_log,
         )
         result = _result_label(job.status, job.error)
         WORKER_COUNTER.labels(result=result).inc()
