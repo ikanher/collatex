@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import queue
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -9,6 +8,7 @@ from typing import Optional
 
 from .models import CompileRequest
 from .state import add_job
+from ..queue import enqueue_job as _enqueue_job
 
 
 class JobStatus(str, Enum):
@@ -31,11 +31,8 @@ class Job:
     logs: Optional[str] = None
 
 
-JOB_QUEUE: queue.Queue[str] = queue.Queue()
-
-
 async def enqueue(req: CompileRequest) -> str:
     job_id = str(uuid.uuid4())
     await add_job(job_id, Job(req=req))
-    JOB_QUEUE.put(job_id)
+    await _enqueue_job(job_id, req.model_dump_json())
     return job_id

@@ -21,4 +21,7 @@ def app(request, monkeypatch):
     yield main.app
     if state_backend == 'redis':
         asyncio.run(redis_server.close())
+    stop = getattr(main.app.state, 'worker_stop', None)
+    if stop is not None:
+        stop()
 
