@@ -1,10 +1,9 @@
-import axios from 'axios';
-import { API_URL } from '../config';
+import api from './client';
 
 export type CompileStatus = 'queued' | 'running' | 'done' | 'error' | 'limit';
 
 export async function startCompile(tex: string): Promise<string> {
-  const res = await axios.post(`${API_URL}/compile`, {
+  const res = await api.post('/compile', {
     projectId: 'demo',
     entryFile: 'main.tex',
     engine: 'tectonic',
@@ -14,11 +13,11 @@ export async function startCompile(tex: string): Promise<string> {
 }
 
 export async function pollJob(jobId: string): Promise<{ status: CompileStatus }> {
-  const res = await axios.get(`${API_URL}/jobs/${jobId}`);
+  const res = await api.get(`/jobs/${jobId}`);
   return res.data as { status: CompileStatus };
 }
 
 export async function fetchPdf(jobId: string): Promise<Blob> {
-  const res = await axios.get(`${API_URL}/pdf/${jobId}`, { responseType: 'blob' });
+  const res = await api.get(`/pdf/${jobId}`, { responseType: 'blob' });
   return res.data as Blob;
 }

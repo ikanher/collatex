@@ -22,6 +22,7 @@ tex='\\documentclass{article}\\begin{document}Hi\\end{document}'
 body=$(printf '%s' "$tex" | base64 -w0)
 job=$(curl -fs -X POST "$backend/compile" \
   -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer changeme' \
   -d '{"projectId":"demo","entryFile":"main.tex","engine":"tectonic","files":[{"path":"main.tex","contentBase64":"'$body'"}]}' | jq -r '.jobId')
 
 if [ -z "$job" ] || [ "$job" = "null" ]; then
@@ -30,7 +31,7 @@ if [ -z "$job" ] || [ "$job" = "null" ]; then
 fi
 
 for i in $(seq 1 60); do
-  status=$(curl -fs "$backend/jobs/$job" | jq -r '.status')
+  status=$(curl -fs "$backend/jobs/$job" -H 'Authorization: Bearer changeme' | jq -r '.status')
   if [ "$status" = "done" ]; then
     break
   fi
@@ -43,6 +44,6 @@ if [ "$status" != "done" ]; then
   exit 1
 fi
 
-curl -fs "$backend/pdf/$job" -o /tmp/out.pdf
+curl -fs "$backend/pdf/$job" -H 'Authorization: Bearer changeme' -o /tmp/out.pdf
 grep -q '%PDF' /tmp/out.pdf
 

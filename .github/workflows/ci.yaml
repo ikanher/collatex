@@ -67,6 +67,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Start stack
-        run: docker compose up -d --build
+        run: COLLATEX_API_TOKEN=ci-token docker compose up -d --build
       - name: Run smoke test
-        run: ./scripts/smoke.sh
+        run: COLLATEX_API_TOKEN=ci-token ./scripts/smoke.sh

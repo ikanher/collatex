@@ -7,6 +7,7 @@ services:
     environment:
       COLLATEX_STATE: redis
       REDIS_URL: redis://redis:6379
+      COLLATEX_API_TOKEN: changeme
     ports: ["8080:8080"]
   worker:
     build: ./backend/compile-service
@@ -14,13 +15,18 @@ services:
     environment:
       COLLATEX_STATE: redis
       REDIS_URL: redis://redis:6379
+      COLLATEX_API_TOKEN: changeme
   gateway:
     build: ./apps/collab_gateway
     environment:
       PORT: 1234
       ALLOWED_ORIGINS: localhost
+      COLLATEX_API_TOKEN: changeme
     ports: ["1234:1234"]
   frontend:
-    build: ./apps/frontend
+    build:
+      context: ./apps/frontend
+      args:
+        VITE_API_TOKEN: changeme
     ports: ["5173:80"]
 
