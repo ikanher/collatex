@@ -21,16 +21,16 @@ dev-collab: check-node
 
 # Always use dev group tools (pytest-xdist, ruff, mypy)
 test:
-	cd backend/compile-service && uv run -g dev -m pytest -n auto -q
+	cd backend/compile-service && uv run --extra dev -m pytest -n auto -q
 
 lint:
-	cd backend/compile-service && uv run -g dev ruff check .
+	cd backend/compile-service && uv run --extra dev ruff check .
 
 typecheck:
-	cd backend/compile-service && uv run -g dev mypy -p compile_service
+	cd backend/compile-service && uv run --extra dev mypy -p compile_service
 
 fmt:
-	cd backend/compile-service && uv run -g dev ruff format .
+	cd backend/compile-service && uv run --extra dev ruff format .
 
 check-node:
 	@command -v node >/dev/null 2>&1 || { echo "Node.js is required (install Node 20+)."; exit 1; }

@@ -76,8 +76,17 @@ def _compile_job(job_id: str) -> None:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(base64.b64decode(f.contentBase64))
 
-        code, out = _run_tectonic(workdir, job.req.entryFile, job.req.options)
-        job.logs = out
+        try:
+            code, out = _run_tectonic(workdir, job.req.entryFile, job.req.options)
+            job.logs = out
+        except FileNotFoundError:
+            job.error = 'engine not available'
+            job.logs = 'tectonic binary not found'
+            code = -1
+        except Exception as exc:  # pragma: no cover - unexpected crash
+            job.error = str(exc)
+            job.logs = ''
+            code = -1
         pdf = workdir / (Path(job.req.entryFile).stem + '.pdf')
 
         if code == 0 and pdf.exists():
