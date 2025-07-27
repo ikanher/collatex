@@ -10,7 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import artifacts_dir, compile_timeout_seconds
-from .jobs import JOB_QUEUE, JOBS, JobStatus
+from .jobs import JOB_QUEUE, JobStatus
+from .state import get_job, update_job_status
 from .logging import job_id_var
 from .models import CompileOptions
 
@@ -60,13 +61,12 @@ def _run_tectonic(workdir: Path, entry: str, opts: CompileOptions) -> tuple[int,
 
 
 def _compile_job(job_id: str) -> None:
-    job = JOBS.get(job_id)
+    job = get_job(job_id)
     if not job:
         return
 
     token = job_id_var.set(job_id)
-    job.status = JobStatus.RUNNING
-    job.started_at = datetime.now(timezone.utc).isoformat()
+    update_job_status(job_id, JobStatus.RUNNING, started_at=datetime.now(timezone.utc).isoformat())
     logging.info('job started')
 
     with tempfile.TemporaryDirectory(prefix='ctex_') as tmp:

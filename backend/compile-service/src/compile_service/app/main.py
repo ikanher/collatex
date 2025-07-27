@@ -6,11 +6,13 @@ from typing import Any, Awaitable, Callable, Dict
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 
 from .config import max_upload_bytes
-from .jobs import JOBS, JobStatus, enqueue
+from .jobs import JobStatus, enqueue
+from .state import get_job
 from .logging import configure_logging, request_id_var
 from .models import CompileRequest, CompileResponse
 from .security import contains_forbidden_tex
@@ -65,7 +67,11 @@ async def _parse_compile_request(request: Request) -> CompileRequest:
     try:
         return CompileRequest.model_validate_json(body)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail='validation error') from exc
+        if hasattr(exc, 'errors'):
+            detail = jsonable_encoder(exc.errors())
+        else:
+            detail = 'validation error'
+        raise HTTPException(status_code=400, detail=detail) from exc
 
 
 @app.post('/compile', response_model=CompileResponse, status_code=202)
@@ -77,7 +83,7 @@ async def compile_endpoint(req: CompileRequest = Depends(_parse_compile_request)
 
 @app.get('/jobs/{job_id}')
 async def job_status(job_id: str) -> JSONResponse:
-    job = JOBS.get(job_id)
+    job = get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail='job not found')
     body: Dict[str, Any] = {
@@ -97,7 +103,7 @@ async def job_status(job_id: str) -> JSONResponse:
 
 @app.get('/pdf/{job_id}')
 async def get_pdf(job_id: str) -> Response:
-    job = JOBS.get(job_id)
+    job = get_job(job_id)
     if not job or job.status != JobStatus.DONE:
         raise HTTPException(status_code=404, detail='pdf not found')
     headers = {'Cache-Control': 'no-store', 'ETag': '"stub"'}
@@ -112,18 +118,9 @@ async def get_pdf(job_id: str) -> Response:
 
 
 def _validate_request(req: CompileRequest) -> None:
-    if req.engine != 'tectonic':
-        raise HTTPException(status_code=400, detail='unsupported engine')
-
-    if not any(f.path == req.entryFile for f in req.files):
-        raise HTTPException(status_code=400, detail='entryFile not in files')
-
     seen = set()
     total_bytes = 0
     for f in req.files:
-        p = Path(f.path)
-        if f.path.startswith('/') or '..' in p.parts:
-            raise HTTPException(status_code=400, detail=f'invalid path: {f.path}')
         if f.path in seen:
             raise HTTPException(status_code=400, detail=f'duplicate path: {f.path}')
         seen.add(f.path)
