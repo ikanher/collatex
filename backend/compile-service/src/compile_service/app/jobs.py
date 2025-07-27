@@ -26,6 +26,7 @@ class Job:
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
     error: Optional[str] = None
+    pdf_bytes: Optional[bytes] = None
     pdf_path: Optional[str] = None
     logs: Optional[str] = None
 

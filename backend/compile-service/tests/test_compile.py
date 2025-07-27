@@ -76,6 +76,7 @@ def test_dangerous_tex() -> None:
         assert r.status_code in {400, 422}
 
 
+@pytest.mark.skipif(shutil.which('tectonic') is None, reason='tectonic not installed')
 def test_compile_error() -> None:
     bad_tex = base64.b64encode(b'\\documentclass{article}').decode()
     payload = {

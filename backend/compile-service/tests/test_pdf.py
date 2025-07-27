@@ -14,7 +14,9 @@ def payload() -> dict:
         'files': [
             {
                 'path': 'main.tex',
-                'contentBase64': base64.b64encode(b'\\documentclass{article}\\begin{document}ok\\end{document}').decode(),
+                'contentBase64': base64.b64encode(
+                    b'\\documentclass{article}\\begin{document}ok\\end{document}'
+                ).decode(),
             }
         ],
         'options': {'synctex': False, 'maxSeconds': 5, 'maxMemoryMb': 512},
