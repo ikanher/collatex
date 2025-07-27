@@ -5,9 +5,10 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, Optional
+from typing import Optional
 
 from .models import CompileRequest
+from .state import add_job
 
 
 class JobStatus(str, Enum):
@@ -29,12 +30,11 @@ class Job:
     logs: Optional[str] = None
 
 
-JOBS: Dict[str, Job] = {}
 JOB_QUEUE: queue.Queue[str] = queue.Queue()
 
 
 def enqueue(req: CompileRequest) -> str:
     job_id = str(uuid.uuid4())
-    JOBS[job_id] = Job(req=req)
+    add_job(job_id, Job(req=req))
     JOB_QUEUE.put(job_id)
     return job_id

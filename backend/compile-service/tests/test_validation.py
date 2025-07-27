@@ -25,6 +25,7 @@ def test_invalid_engine() -> None:
     with TestClient(app) as client:
         resp = client.post('/compile', json=payload)
     assert resp.status_code == 400
+    assert isinstance(resp.json()['detail'], list)
 
 
 def test_entryfile_missing() -> None:
@@ -33,6 +34,7 @@ def test_entryfile_missing() -> None:
     with TestClient(app) as client:
         resp = client.post('/compile', json=payload)
     assert resp.status_code == 400
+    assert isinstance(resp.json()['detail'], list)
 
 
 def test_invalid_path() -> None:
@@ -41,6 +43,7 @@ def test_invalid_path() -> None:
     with TestClient(app) as client:
         resp = client.post('/compile', json=payload)
     assert resp.status_code == 400
+    assert isinstance(resp.json()['detail'], list)
 
 
 def test_leading_slash_path() -> None:
