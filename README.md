@@ -45,3 +45,11 @@ Tasks:
 - Dockerfile per service
 - Compose setup
 - GitHub Actions (lint, test, typecheck)
+
+## Dev loop
+```bash
+# run full stack
+make dev-redis & make dev-worker & make dev-backend & make dev-collab
+```
+
+Set `ALLOWED_ORIGINS` to comma-separated hosts for CORS.

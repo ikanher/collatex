@@ -1,0 +1,7 @@
+{
+  "name": "collatex-root",
+  "private": true,
+  "workspaces": [
+    "apps/collab_gateway"
+  ]
+}
