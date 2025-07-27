@@ -49,7 +49,11 @@ Tasks:
 ## Dev loop
 ```bash
 # run full stack
-make dev-redis & make dev-worker & make dev-backend & make dev-collab
+make dev-redis & \\
+make dev-worker & \\
+make dev-backend & \\
+make dev-collab & \\
+make dev-frontend
 ```
 
 Set `ALLOWED_ORIGINS` to comma-separated hosts for CORS.

@@ -2,6 +2,7 @@
   "name": "collatex-root",
   "private": true,
   "workspaces": [
-    "apps/collab_gateway"
+    "apps/collab_gateway",
+    "apps/frontend"
   ]
 }
