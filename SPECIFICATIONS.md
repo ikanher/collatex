@@ -79,7 +79,7 @@ No auth in MVP; anonymous, local-only development.
 ### Security policy (MVP)
 - No shell escape; reject files containing `\write18` or similar patterns.
 - Execute compile in a temp directory; remove after completion.
-- Set CPU time limit (`5s`) and memory ceiling where supported (POSIX `resource`).
+- Set CPU time limit (`5s`) and memory ceiling (`512MiB` default, max 1GiB) where supported (POSIX `resource`).
 - No network during compile (dev may allow one-time cache warm-up).
 
 ---
@@ -107,6 +107,7 @@ const ytext = doc.getText('content')
 ## 3) Non-functional requirements
 - **Latency:** compile request acknowledged within 100ms (job queued).
 - **Timeouts:** default soft 5s compile CPU; hard 10s wall.
+- **Memory:** default 512 MiB; request may lower but not exceed 1 GiB.
 - **Payload limits:** 5 MiB per request (tune later).
 - **Resource use:** temp workspace ≤ 50 MiB.
 - **Observability:** counters for compile success/fail; duration histograms.
