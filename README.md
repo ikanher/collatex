@@ -48,27 +48,18 @@ Tasks:
 
 ## Dev loop
 ```bash
-# run full stack
-make dev-redis & \\
-make dev-worker & \\
-make dev-backend & \\
-make dev-collab & \\
-make dev-frontend
+# Quick start
+docker compose up --build
+./scripts/smoke.sh
+open http://localhost:5173
 ```
 
-Set `ALLOWED_ORIGINS` to comma-separated hosts for CORS.
-
-### Frontend
-
+## Architecture
+```mermaid
+graph TD
+  browser[Browser] <--> frontend[Frontend]
+  frontend <--> gateway[Gateway]
+  gateway <--> redis[(Redis)]
+  redis <--> backend[Backend]
+  redis <--> worker[Worker]
 ```
-VITE_API_URL=http://localhost:8080
-VITE_WS_URL=ws://localhost:1234
-```
-
-Start the SPA:
-
-```bash
-npm run dev --workspace apps/frontend
-```
-
-Then open http://localhost:5173.
