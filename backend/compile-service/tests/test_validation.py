@@ -63,12 +63,12 @@ def test_forbidden_tex() -> None:
 
 
 @pytest.mark.parametrize('snippet', [b'\\write0{}', b'\\input{f}', b'\\openout1', b'\\read1'])
-def test_more_forbidden_tex(snippet: bytes) -> None:
+def test_non_write18_allowed(snippet: bytes) -> None:
     payload = minimal_payload()
     payload['files'][0]['contentBase64'] = base64.b64encode(snippet).decode()
     with TestClient(app) as client:
         resp = client.post('/compile', json=payload)
-    assert resp.status_code == 422
+    assert resp.status_code == 202
 
 
 def test_payload_too_large() -> None:

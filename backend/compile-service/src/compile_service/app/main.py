@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import base64
-from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import JSONResponse, Response
 
 from .config import max_upload_bytes
 from .jobs import JobStatus, enqueue
@@ -28,6 +27,7 @@ app = FastAPI(title='CollaTeX Compile Service', version='0.1.0')
 @app.on_event('startup')
 def launch_worker() -> None:
     start_worker()
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -75,7 +75,9 @@ async def _parse_compile_request(request: Request) -> CompileRequest:
 
 
 @app.post('/compile', response_model=CompileResponse, status_code=202)
-async def compile_endpoint(req: CompileRequest = Depends(_parse_compile_request)) -> CompileResponse:
+async def compile_endpoint(
+    req: CompileRequest = Depends(_parse_compile_request),
+) -> CompileResponse:
     _validate_request(req)
     job_id = enqueue(req)
     return CompileResponse(jobId=job_id)
@@ -96,7 +98,7 @@ async def job_status(job_id: str) -> JSONResponse:
     }
     if job.logs:
         body['logs'] = job.logs
-    if job.pdf_path:
+    if job.pdf_bytes:
         body['pdfUrl'] = f'/pdf/{job_id}'
     return JSONResponse(content=body)
 
@@ -104,17 +106,13 @@ async def job_status(job_id: str) -> JSONResponse:
 @app.get('/pdf/{job_id}')
 async def get_pdf(job_id: str) -> Response:
     job = get_job(job_id)
-    if not job or job.status != JobStatus.DONE:
+    if not job or job.status != JobStatus.DONE or not job.pdf_bytes:
         raise HTTPException(status_code=404, detail='pdf not found')
-    headers = {'Cache-Control': 'no-store', 'ETag': '"stub"'}
-    if job.pdf_path and Path(job.pdf_path).exists():
-        return FileResponse(
-            path=str(job.pdf_path),
-            media_type='application/pdf',
-            filename=f'{job_id}.pdf',
-            headers=headers,
-        )
-    return Response(status_code=404, headers=headers)
+    return Response(
+        content=job.pdf_bytes,
+        media_type='application/pdf',
+        headers={'Cache-Control': 'no-store'},
+    )
 
 
 def _validate_request(req: CompileRequest) -> None:
@@ -129,7 +127,7 @@ def _validate_request(req: CompileRequest) -> None:
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f'invalid base64 for {f.path}') from exc
         if contains_forbidden_tex(raw):
-            raise HTTPException(status_code=422, detail='shell escape not allowed')
+            raise HTTPException(status_code=422, detail='shell escape disallowed')
         total_bytes += len(raw)
 
     if total_bytes > MAX_UPLOAD_BYTES:
