@@ -52,6 +52,12 @@ export function createServer(): http.Server {
   const wss = new WebSocketServer({ noServer: true });
   server.on('upgrade', (req, socket, head) => {
     wss.handleUpgrade(req, socket, head, (ws) => {
+      const url = new URL(req.url || '/', 'http://localhost');
+      const token = url.searchParams.get('token');
+      if (token !== process.env.COLLATEX_API_TOKEN) {
+        ws.close(4401);
+        return;
+      }
       setupWSConnection(ws, req);
       connectionsTotal.inc();
     });

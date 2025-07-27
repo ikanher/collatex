@@ -9,6 +9,7 @@ let baseURL: string;
 
 beforeEach((done) => {
   process.env.ALLOWED_ORIGINS = 'localhost:3000';
+  process.env.COLLATEX_API_TOKEN = 'secret';
   server = createServer();
   server.listen(0, () => {
     const address = server.address() as AddressInfo;
@@ -45,8 +46,8 @@ test('CORS preflight denied', async () => {
   expect(res.status).toBe(403);
 });
 
-test('WebSocket increments metric', async () => {
-  const wsUrl = baseURL.replace('http', 'ws');
+test('WebSocket increments metric with token', async () => {
+  const wsUrl = baseURL.replace('http', 'ws') + '?token=secret';
   await new Promise((resolve) => {
     const ws = new WebSocket(wsUrl);
     ws.on('open', () => ws.close());
@@ -54,4 +55,13 @@ test('WebSocket increments metric', async () => {
   });
   const res = await request(baseURL).get('/metrics');
   expect(res.text).toContain('collatex_ws_connections_total 1');
+});
+
+test('WebSocket rejects without token', (done) => {
+  const wsUrl = baseURL.replace('http', 'ws');
+  const ws = new WebSocket(wsUrl);
+  ws.on('close', (code) => {
+    expect(code).toBe(4401);
+    done();
+  });
 });

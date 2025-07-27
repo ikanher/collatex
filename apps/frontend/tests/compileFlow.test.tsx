@@ -1,17 +1,20 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import axios from 'axios';
 import App from '../src/App';
 import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
 const aw = new Awareness(new Y.Doc());
 vi.mock('y-websocket', () => ({ WebsocketProvider: vi.fn(() => ({ awareness: aw, disconnect: vi.fn() })) }));
 process.env.VITE_WS_URL = 'ws://test:1234';
+process.env.VITE_API_TOKEN = 'tkn';
 
-vi.mock('axios');
-const mockedPost = vi.mocked(axios.post);
-const mockedGet = vi.mocked(axios.get);
+vi.mock('../src/api/client', () => ({
+  default: { post: vi.fn(), get: vi.fn() }
+}));
+import api from '../src/api/client';
+const mockedPost = vi.mocked(api.post);
+const mockedGet = vi.mocked(api.get);
 
 describe('compile flow', () => {
   beforeEach(() => {

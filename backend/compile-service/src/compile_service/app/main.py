@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import base64
-from typing import Any, Dict
+from typing import Any, Dict, Awaitable, Callable
 import os
 import redis.asyncio as redis
 
@@ -17,6 +17,7 @@ from .jobs import JobStatus, enqueue
 from .state import get_job, init as state_init
 from ..logging import configure_logging
 from .middleware import RequestIdMiddleware
+from ..auth import verify_token
 from .models import CompileRequest, CompileResponse
 from .. import queue
 from .worker import start_worker, stop_worker
@@ -67,6 +68,20 @@ app.add_middleware(
 )
 
 app.add_middleware(RequestIdMiddleware)
+
+
+@app.middleware('http')
+async def auth_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    path = request.url.path
+    if path == '/healthz' or path.startswith('/metrics'):
+        return await call_next(request)
+    try:
+        await verify_token(request)
+    except HTTPException as exc:
+        return JSONResponse(status_code=exc.status_code, content={'detail': exc.detail})
+    return await call_next(request)
 
 
 @app.get('/healthz')

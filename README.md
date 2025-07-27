@@ -63,3 +63,9 @@ graph TD
   redis <--> backend[Backend]
   redis <--> worker[Worker]
 ```
+
+## Authentication
+
+Set `COLLATEX_API_TOKEN` in your `.env` and pass the same value in the frontend
+settings dialog. The compile API expects `Authorization: Bearer <token>` and the
+WebSocket URL must include `token=<token>`.
