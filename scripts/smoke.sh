@@ -1,5 +1,10 @@
 #!/bin/sh
 set -e
+started_local=""
+if ! docker compose ps >/dev/null 2>&1; then
+  ./scripts/dev_local.sh &
+  started_local=$!
+fi
 backend=http://localhost:8080
 gateway=http://localhost:1234
 
@@ -50,4 +55,8 @@ fi
 
 curl -fs "$backend/pdf/$job" -H 'Authorization: Bearer changeme' -o /tmp/out.pdf
 grep -q '%PDF' /tmp/out.pdf
+
+if [ -n "$started_local" ]; then
+  kill "$started_local"
+fi
 

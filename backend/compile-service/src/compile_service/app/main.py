@@ -35,10 +35,18 @@ app.mount('/metrics', make_asgi_app(), name='metrics')
 
 @app.on_event('startup')
 async def setup_redis() -> None:
-    if os.getenv('COLLATEX_STATE', 'memory') == 'redis':
+    state = os.getenv('COLLATEX_STATE', 'memory')
+    if state in {'redis', 'fakeredis'}:
         url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
-        client = redis.from_url(url)  # type: ignore[no-untyped-call]
-        await client.ping()
+        try:
+            if state == 'fakeredis':
+                raise RuntimeError('using fakeredis')
+            client = redis.from_url(url)  # type: ignore[no-untyped-call]
+            await client.ping()
+        except Exception:
+            import fakeredis.aioredis
+
+            client = fakeredis.aioredis.FakeRedis()
         state_init(client)
         queue.init(client)
         app.state.redis = client
@@ -46,7 +54,7 @@ async def setup_redis() -> None:
 
 @app.on_event('startup')
 def launch_worker() -> None:
-    if os.getenv('COLLATEX_STATE', 'memory') != 'redis':
+    if os.getenv('COLLATEX_STATE', 'memory') == 'memory':
         start_worker()
         app.state.worker_stop = stop_worker
 

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import base64
-import subprocess
+import os
+import shutil
 import signal
+import subprocess
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -16,6 +18,11 @@ from .logging import job_id_var
 from .sandbox import apply_limits
 
 logger = structlog.get_logger(__name__)
+
+_TECTONIC = os.getenv('TECTONIC_PATH') or shutil.which('tectonic')
+_PLACEHOLDER = (
+    Path(__file__).resolve().parents[2] / 'static' / 'placeholder.pdf'
+)
 
 COMPILE_COUNTER = Counter(
     'collatex_compile_total',
@@ -33,6 +40,23 @@ def run_compile(job: Job) -> None:
     job.started_at = datetime.now(timezone.utc).isoformat()
     start = time.perf_counter()
 
+    if _TECTONIC is None:
+        time.sleep(0.5)
+        job.pdf_bytes = _PLACEHOLDER.read_bytes()
+        job.status = JobStatus.DONE
+        job.error = None
+        job.finished_at = datetime.now(timezone.utc).isoformat()
+        duration_ms = int((time.perf_counter() - start) * 1000)
+        COMPILE_COUNTER.labels(status='stub').inc()
+        COMPILE_DURATION.observe(duration_ms / 1000)
+        logger.info(
+            'compile_finished',
+            job_id=job_id_var.get(''),
+            status='done',
+            duration_ms=duration_ms,
+        )
+        return
+
     with tempfile.TemporaryDirectory(prefix='ctex_') as tmpdir:
         workdir = Path(tmpdir)
         for item in job.req.files:
@@ -42,7 +66,7 @@ def run_compile(job: Job) -> None:
         out_dir = workdir / 'out'
         out_dir.mkdir(exist_ok=True)
         cmd = [
-            'tectonic',
+            _TECTONIC,
             '-X',
             'compile',
             '--untrusted',

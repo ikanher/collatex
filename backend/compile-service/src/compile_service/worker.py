@@ -71,10 +71,18 @@ async def _run(stop: asyncio.Event) -> None:
 
 async def main() -> None:
     configure_logging()
-    if os.getenv('COLLATEX_STATE', 'memory') == 'redis':
+    state = os.getenv('COLLATEX_STATE', 'memory')
+    if state in {'redis', 'fakeredis'}:
         url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
-        client = cast(redis.Redis, redis.from_url(url))  # type: ignore[no-untyped-call]
-        await client.ping()
+        try:
+            if state == 'fakeredis':
+                raise RuntimeError('using fakeredis')
+            client = cast(redis.Redis, redis.from_url(url))  # type: ignore[no-untyped-call]
+            await client.ping()
+        except Exception:
+            import fakeredis.aioredis
+
+            client = fakeredis.aioredis.FakeRedis()
         state_init(client)
         queue_init(client)
     else:

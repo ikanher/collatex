@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import importlib
 
-if os.getenv('COLLATEX_STATE', 'memory') == 'redis':
+if os.getenv('COLLATEX_STATE', 'memory') in {'redis', 'fakeredis'}:
     backend_impl = importlib.import_module('compile_service.app.state_redis')
 else:
     backend_impl = importlib.import_module('compile_service.app.state_memory')
