@@ -10,7 +10,7 @@ import type { CompileStatus } from '../api/compile';
 const ROOM = 'main';
 
 const EditorPage: React.FC = () => {
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [log, setLog] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | CompileStatus>('idle');
@@ -23,11 +23,11 @@ const EditorPage: React.FC = () => {
         <Editor room={ROOM} />
       </div>
       <div className="w-1/2 h-full">
-        <PdfViewer pdfUrl={pdfUrl} />
+        <PdfViewer blobUrl={pdfBlobUrl} />
       </div>
       <CompileButton
         room={ROOM}
-        onPdf={setPdfUrl}
+        onPdf={setPdfBlobUrl}
         onToast={setToast}
         onLog={(l) => setLog(l)}
         onStatus={(s) => {

@@ -18,6 +18,10 @@ wait_service() {
 wait_service "$backend/healthz"
 wait_service "$gateway/healthz"
 
+curl -fs -X OPTIONS "$backend/compile" \
+  -H 'Origin: http://localhost:5173' \
+  -H 'Access-Control-Request-Method: POST' >/dev/null
+
 tex='\\documentclass{article}\\begin{document}Hi\\end{document}'
 body=$(printf '%s' "$tex" | base64 -w0)
 job=$(curl -fs -X POST "$backend/compile" \

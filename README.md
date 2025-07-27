@@ -53,6 +53,9 @@ docker compose up --build
 ./scripts/smoke.sh
 open http://localhost:5173
 ```
+Do **not** open `index.html` directly with `file://`. Always run `npm run dev` or
+use the Dockerised frontend at `http://localhost:5173` so CORS and relative paths
+work correctly.
 
 ## Architecture
 ```mermaid
@@ -69,6 +72,10 @@ graph TD
 Set `COLLATEX_API_TOKEN` in your `.env` and pass the same value in the frontend
 settings dialog. The compile API expects `Authorization: Bearer <token>` and the
 WebSocket URL must include `token=<token>`.
+
+`COLLATEX_ALLOWED_ORIGINS` controls which frontend URLs may access the backend.
+The default is `http://localhost:5173`. Set it to a comma-separated list of
+origins when deploying.
 
 ## Troubleshooting
 

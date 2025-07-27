@@ -1,12 +1,18 @@
 import React from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
+
+pdfjs.GlobalWorkerOptions.workerSrc =
+  `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface Props {
-  pdfUrl: string | null;
+  blobUrl: string | null;
 }
 
-const PdfViewer: React.FC<Props> = ({ pdfUrl }) => {
-  return pdfUrl ? (
-    <iframe title="pdf-viewer" src={pdfUrl} className="w-full h-full" />
+const PdfViewer: React.FC<Props> = ({ blobUrl }) => {
+  return blobUrl ? (
+    <Document file={blobUrl} className="w-full h-full">
+      <Page pageNumber={1} />
+    </Document>
   ) : null;
 };
 

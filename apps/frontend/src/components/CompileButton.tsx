@@ -4,7 +4,7 @@ import { useCollabDoc } from '../hooks/useCollabDoc';
 
 interface Props {
   room: string;
-  onPdf: (url: string) => void;
+  onPdf: (blobUrl: string) => void;
   onToast: (msg: string) => void;
   onLog: (log: string | null) => void;
   onStatus: (st: CompileStatus | 'idle') => void;
@@ -31,8 +31,8 @@ const CompileButton: React.FC<Props> = ({ room, onPdf, onToast, onLog, onStatus 
       onLog(result.log || null);
       if (result.status === 'done') {
         const blob = await fetchPdf(jobId);
-        const url = URL.createObjectURL(blob);
-        onPdf(url);
+        const blobUrl = URL.createObjectURL(blob);
+        onPdf(blobUrl);
       } else {
         onToast(result.status);
       }
