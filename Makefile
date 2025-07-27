@@ -1,4 +1,4 @@
-.PHONY: up down dev dev-backend dev-collab dev-redis test lint typecheck fmt check-node
+.PHONY: up down dev dev-backend dev-collab dev-frontend dev-redis test lint typecheck fmt check-node
 
 up:
 	docker compose up --build -d
@@ -17,7 +17,10 @@ dev-backend:
 
 # Collab websocket (pin y-websocket and auto-confirm with -y)
 dev-collab: check-node
-	npm --prefix apps/collab_gateway run dev
+        npm --prefix apps/collab_gateway run dev
+
+dev-frontend: check-node
+        npm --prefix apps/frontend run dev
 
 dev-redis:
 	docker run --rm -p 6379:6379 redis:7-alpine
