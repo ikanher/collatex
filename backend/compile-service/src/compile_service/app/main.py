@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import base64
-from typing import Any, Awaitable, Callable, Dict
-from uuid import uuid4
+from typing import Any, Dict
+
+from prometheus_client import make_asgi_app
 
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.encoders import jsonable_encoder
@@ -12,7 +13,8 @@ from fastapi.responses import JSONResponse, Response
 from .config import max_upload_bytes
 from .jobs import JobStatus, enqueue
 from .state import get_job
-from .logging import configure_logging, request_id_var
+from ..logging import configure_logging
+from .middleware import RequestIdMiddleware
 from .models import CompileRequest, CompileResponse
 from .security import contains_forbidden_tex
 from .worker import start_worker
@@ -22,6 +24,7 @@ MAX_UPLOAD_BYTES = max_upload_bytes()
 configure_logging()
 
 app = FastAPI(title='CollaTeX Compile Service', version='0.1.0')
+app.mount('/metrics', make_asgi_app(), name='metrics')
 
 
 @app.on_event('startup')
@@ -37,19 +40,7 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
-
-@app.middleware('http')
-async def add_request_id(
-    request: Request, call_next: Callable[[Request], Awaitable[Response]]
-) -> Response:
-    request_id = request.headers.get('X-Request-Id') or str(uuid4())
-    token = request_id_var.set(request_id)
-    try:
-        response = await call_next(request)
-    finally:
-        request_id_var.reset(token)
-    response.headers['X-Request-Id'] = request_id
-    return response
+app.add_middleware(RequestIdMiddleware)
 
 
 @app.get('/healthz')
