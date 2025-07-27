@@ -27,6 +27,9 @@ dev-worker:
 
 # Always use dev group tools (pytest-xdist, ruff, mypy)
 test:
+	if [ "$$COLLATEX_STATE" = "redis" ]; then \
+	python scripts/check_redis.py; \
+	fi
 	cd backend/compile-service && uv run --extra dev -m pytest -n auto -q
 
 lint:

@@ -1,3 +1,4 @@
+[![CI](https://github.com/ikanher/collatex/actions/workflows/ci.yaml/badge.svg)](https://github.com/ikanher/collatex/actions/workflows/ci.yaml)
 AGENTS
 
 ## 1) Architect

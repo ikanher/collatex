@@ -1,19 +1,25 @@
 import asyncio
 import importlib
+import os
 
-import fakeredis.aioredis
+import redis.asyncio as redis
 import pytest
 
+from .helpers import require_redis
 from compile_service.app import state
 from compile_service.app.jobs import Job, JobStatus
 from compile_service.app.models import CompileRequest, FileItem, CompileOptions
 
+require_redis()
+
 
 @pytest.fixture
 def redis_server():
-    server = fakeredis.aioredis.FakeRedis()
-    yield server
-    asyncio.run(server.close())
+    url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+    client = redis.from_url(url)
+    asyncio.run(client.flushdb())
+    yield client
+    asyncio.run(client.aclose())
 
 
 @pytest.fixture(autouse=True)
@@ -51,4 +57,3 @@ def test_update_visible_across_instances(redis_server):
     again = asyncio.run(state.get_job('2'))
     assert again.finished_at == 'now'
     assert again.status == JobStatus.DONE
-
