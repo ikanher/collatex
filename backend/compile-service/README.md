@@ -14,6 +14,14 @@ Stop with:
 make down
 ```
 
+To test Redis-backed persistence locally:
+
+```bash
+brew install redis  # or use your package manager
+make dev-redis &
+export COLLATEX_STATE=redis
+```
+
 ## Example request
 
 ```bash

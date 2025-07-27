@@ -6,11 +6,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from compile_service.app.main import app
-
 
 @pytest.mark.skipif(shutil.which('tectonic') is None, reason='tectonic not installed')
-def test_compile_minimal() -> None:
+def test_compile_minimal(app) -> None:
     root = Path(__file__).resolve().parents[3]
     main = (root / 'examples/minimal/main.tex').read_bytes()
     payload = {
@@ -35,7 +33,7 @@ def test_compile_minimal() -> None:
         assert pdf.content.startswith(b'%PDF')
 
 
-def test_invalid_base64() -> None:
+def test_invalid_base64(app) -> None:
     payload = {
         'projectId': 'demo',
         'entryFile': 'main.tex',
@@ -48,7 +46,7 @@ def test_invalid_base64() -> None:
         assert r.status_code == 400
 
 
-def test_oversized_input() -> None:
+def test_oversized_input(app) -> None:
     big = base64.b64encode(b'a' * (2 * 1024 * 1024 + 1)).decode()
     payload = {
         'projectId': 'demo',
@@ -62,7 +60,7 @@ def test_oversized_input() -> None:
         assert r.status_code == 413
 
 
-def test_dangerous_tex() -> None:
+def test_dangerous_tex(app) -> None:
     bad = base64.b64encode(b'\\write18{rm -rf /}').decode()
     payload = {
         'projectId': 'demo',
@@ -77,7 +75,7 @@ def test_dangerous_tex() -> None:
 
 
 @pytest.mark.skipif(shutil.which('tectonic') is None, reason='tectonic not installed')
-def test_compile_error() -> None:
+def test_compile_error(app) -> None:
     bad_tex = base64.b64encode(b'\\documentclass{article}').decode()
     payload = {
         'projectId': 'demo',

@@ -34,8 +34,8 @@ class Job:
 JOB_QUEUE: queue.Queue[str] = queue.Queue()
 
 
-def enqueue(req: CompileRequest) -> str:
+async def enqueue(req: CompileRequest) -> str:
     job_id = str(uuid.uuid4())
-    add_job(job_id, Job(req=req))
+    await add_job(job_id, Job(req=req))
     JOB_QUEUE.put(job_id)
     return job_id

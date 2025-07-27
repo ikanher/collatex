@@ -3,7 +3,6 @@ import shutil
 import time
 import pytest
 from fastapi.testclient import TestClient
-from compile_service.app.main import app
 
 
 def payload() -> dict:
@@ -21,7 +20,7 @@ def payload() -> dict:
     }
 
 
-def test_job_lifecycle() -> None:
+def test_job_lifecycle(app) -> None:
     if shutil.which('tectonic') is None:
         pytest.skip('tectonic not installed')
     with TestClient(app) as client:

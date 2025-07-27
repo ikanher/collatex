@@ -1,10 +1,8 @@
-import base64
 import shutil
 import time
 import pytest
 from fastapi.testclient import TestClient
-
-from compile_service.app.main import app
+import base64
 
 
 def _minimal_payload(tex: bytes) -> dict:
@@ -18,7 +16,7 @@ def _minimal_payload(tex: bytes) -> dict:
 
 
 @pytest.mark.skipif(shutil.which('tectonic') is None, reason='Tectonic not installed')
-def test_compile_minimal_success() -> None:
+def test_compile_minimal_success(app) -> None:
     tex = b'\\documentclass{article}\\begin{document}ok\\end{document}'
     payload = _minimal_payload(tex)
     with TestClient(app) as client:
@@ -37,7 +35,7 @@ def test_compile_minimal_success() -> None:
 
 
 @pytest.mark.skipif(shutil.which('tectonic') is None, reason='Tectonic not installed')
-def test_compile_timeout() -> None:
+def test_compile_timeout(app) -> None:
     tex = b'\\documentclass{article}\\begin{document}\\loop\\iftrue\\repeat\\end{document}'
     payload = _minimal_payload(tex)
     payload['options']['maxSeconds'] = 1

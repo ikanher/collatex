@@ -1,6 +1,5 @@
 import base64
 from fastapi.testclient import TestClient
-from compile_service.app.main import app
 
 
 def minimal_payload() -> dict:
@@ -18,7 +17,7 @@ def minimal_payload() -> dict:
     }
 
 
-def test_write18_rejected() -> None:
+def test_write18_rejected(app) -> None:
     payload = minimal_payload()
     payload['files'][0]['contentBase64'] = base64.b64encode(b'\\write18{ls}').decode()
     with TestClient(app) as client:
