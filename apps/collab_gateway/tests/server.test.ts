@@ -3,14 +3,15 @@ import { createServer } from '../src/index';
 import { connectionsTotal, register } from '../src/metrics';
 import WebSocket from 'ws';
 import { AddressInfo } from 'net';
-import jwt from 'jsonwebtoken';
+import { createClient } from 'redis';
 
 let server: ReturnType<typeof createServer>;
 let baseURL: string;
 
 beforeEach((done) => {
   process.env.ALLOWED_ORIGINS = 'localhost:3000';
-  process.env.COLLATEX_SECRET = 'secret';
+  redis = createClient();
+  redis.hSet('collatex:projects', 't1', new Date().toISOString());
   server = createServer();
   server.listen(0, () => {
     const address = server.address() as AddressInfo;
@@ -23,6 +24,7 @@ afterEach((done) => {
   server.close(done);
   register.resetMetrics();
   connectionsTotal.reset();
+  redis.quit();
 });
 
 test('GET /healthz', async () => {
@@ -48,22 +50,21 @@ test('CORS preflight denied', async () => {
 });
 
 test('WebSocket increments metric with token', async () => {
-  const token = jwt.sign({ sub: 'u1' }, 'secret', { expiresIn: '1h' });
-  const wsUrl = baseURL.replace('http', 'ws') + `?token=${token}`;
+  const wsUrl = baseURL.replace('http', 'ws') + '/yjs/t1';
   await new Promise((resolve) => {
     const ws = new WebSocket(wsUrl);
     ws.on('open', () => ws.close());
     ws.on('close', resolve);
   });
   const res = await request(baseURL).get('/metrics');
-  expect(res.text).toContain('collatex_ws_connections_total 1');
+  expect(res.text).toContain('collatex_ws_connections_total{project_token="t1"} 1');
 });
 
 test('WebSocket rejects invalid token', (done) => {
-  const wsUrl = baseURL.replace('http', 'ws') + '?token=bad';
+  const wsUrl = baseURL.replace('http', 'ws') + '/yjs/bad';
   const ws = new WebSocket(wsUrl);
   ws.on('close', (code) => {
-    expect(code).toBe(4401);
+    expect(code).toBe(4404);
     done();
   });
 });

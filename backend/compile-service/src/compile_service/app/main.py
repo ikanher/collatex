@@ -3,29 +3,31 @@ from __future__ import annotations
 import os
 import uuid
 from datetime import datetime
+import secrets
 
+import json
 import redis
 import redis.asyncio as aioredis
-import json
 from typing import AsyncGenerator
 from prometheus_client import make_asgi_app
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from collatex.models import Job, JobStatus
+from collatex.models import Job, JobStatus, Project
 from collatex.redis_store import (
     init as store_init,
     get_job,
     save_job,
+    create_project,
+    get_project,
     STATUS_CHANNEL,
 )
 from collatex.tasks import compile_task
-from collatex.auth import create_access_token
-from compile_service.auth import get_current_user
-from argon2 import PasswordHasher
+
+FRONTEND_ORIGIN = os.getenv('FRONTEND_ORIGIN', 'http://localhost:5173')
 
 app = FastAPI(title='CollaTeX Compile Service', version='0.1.0')
 app.mount('/metrics', make_asgi_app())
@@ -38,11 +40,6 @@ def setup() -> None:
     store_init(client)
     app.state.redis = client
     app.state.redis_async = aioredis.from_url(url)  # type: ignore[no-untyped-call]
-    app.state.ph = PasswordHasher()
-    demo_email = os.getenv('COLLATEX_DEMO_EMAIL')
-    demo_pw = os.getenv('COLLATEX_DEMO_PASSWORD')
-    if demo_email and demo_pw and not client.hget('collatex:users', demo_email):
-        client.hset('collatex:users', demo_email, app.state.ph.hash(demo_pw))
 
 
 @app.on_event('shutdown')
@@ -70,13 +67,13 @@ class CompileRequest(BaseModel):
     tex: str
 
 
-class UserCreds(BaseModel):
-    email: str
-    password: str
+def require_project(project: str = Query(...)) -> Project:
+    proj = get_project(project)
+    if proj is None:
+        raise HTTPException(status_code=404, detail='project not found')
+    return proj
 
 
-class TokenResponse(BaseModel):
-    access_token: str
 
 
 @app.get('/healthz')
@@ -84,46 +81,33 @@ def healthz() -> dict[str, str]:
     return {'status': 'ok'}
 
 
-@app.post('/signup', status_code=201)
-async def signup(creds: UserCreds, request: Request) -> Response:
-    client = request.app.state.redis
-    ph: PasswordHasher = request.app.state.ph
-    if client.hget('collatex:users', creds.email):
-        raise HTTPException(status_code=400, detail='exists')
-    hashed = await run_in_threadpool(ph.hash, creds.password)
-    await run_in_threadpool(client.hset, 'collatex:users', creds.email, hashed)
-    return Response(status_code=201)
+@app.post('/projects', status_code=201)
+async def create_project_endpoint() -> JSONResponse:
+    token = secrets.token_urlsafe(9)[:12]
+    project = Project(token=token, created_at=datetime.utcnow())
+    await run_in_threadpool(create_project, project)
+    headers = {'Location': f'{FRONTEND_ORIGIN}/p/{token}'}
+    return JSONResponse({'token': token}, status_code=201, headers=headers)
 
 
-@app.post('/login', response_model=TokenResponse)
-async def login(creds: UserCreds, request: Request) -> TokenResponse:
-    client = request.app.state.redis
-    ph: PasswordHasher = request.app.state.ph
-    stored = await run_in_threadpool(client.hget, 'collatex:users', creds.email)
-    if not stored:
-        raise HTTPException(status_code=401, detail='invalid credentials')
-    try:
-        await run_in_threadpool(ph.verify, stored.decode(), creds.password)
-    except Exception as exc:  # pragma: no cover - wrong password
-        raise HTTPException(status_code=401, detail='invalid credentials') from exc
-    token = create_access_token(creds.email)
-    return TokenResponse(access_token=token)
 
 @app.post('/compile', status_code=202)
-async def compile_endpoint(req: CompileRequest, user_id: str = Depends(get_current_user)) -> Response:
-    job_id = f'{user_id}:{uuid.uuid4()}'
-    job = Job(id=job_id, owner=user_id, created_at=datetime.utcnow())
+async def compile_endpoint(
+    req: CompileRequest, project: Project = Depends(require_project)
+) -> Response:
+    job_id = str(uuid.uuid4())
+    job = Job(id=job_id, project_token=project.token, created_at=datetime.utcnow())
     await run_in_threadpool(save_job, job)
     compile_task.delay(job_id, req.tex)
-    return Response(status_code=202, headers={'Location': f'/jobs/{job_id}'})
+    return Response(status_code=202, headers={'Location': f'/jobs/{job_id}?project={project.token}'})
 
 
 @app.get('/jobs/{job_id}')
-async def job_status(job_id: str, user_id: str = Depends(get_current_user)) -> JSONResponse:
-    if not job_id.startswith(f'{user_id}:'):
-        raise HTTPException(status_code=404, detail='job not found')
+async def job_status(job_id: str, project: Project = Depends(require_project)) -> JSONResponse:
     job = await run_in_threadpool(get_job, job_id)
     if not job:
+        raise HTTPException(status_code=404, detail='job not found')
+    if job.project_token != project.token:
         raise HTTPException(status_code=404, detail='job not found')
     body = {
         'jobId': job.id,
@@ -131,13 +115,14 @@ async def job_status(job_id: str, user_id: str = Depends(get_current_user)) -> J
         'log': job.log,
     }
     if job.status == JobStatus.SUCCEEDED and job.pdf_path:
-        body['pdfUrl'] = f'/pdf/{job.id}'
+        body['pdfUrl'] = f'/pdf/{job.id}?project={project.token}'
     return JSONResponse(content=body)
 
 
 @app.get('/stream/jobs/{job_id}')
-async def stream_job(job_id: str, user_id: str = Depends(get_current_user)) -> Response:
-    if not job_id.startswith(f'{user_id}:'):
+async def stream_job(job_id: str, project: Project = Depends(require_project)) -> Response:
+    job = await run_in_threadpool(get_job, job_id)
+    if not job or job.project_token != project.token:
         raise HTTPException(status_code=404, detail='job not found')
     redis_async = app.state.redis_async
     pubsub = redis_async.pubsub()
@@ -164,10 +149,10 @@ async def stream_job(job_id: str, user_id: str = Depends(get_current_user)) -> R
 
 
 @app.get('/pdf/{job_id}')
-async def get_pdf(job_id: str, user_id: str = Depends(get_current_user)) -> FileResponse:
-    if not job_id.startswith(f'{user_id}:'):
-        raise HTTPException(status_code=404, detail='pdf not found')
+async def get_pdf(job_id: str, project: Project = Depends(require_project)) -> FileResponse:
     job = await run_in_threadpool(get_job, job_id)
-    if not job or job.status != JobStatus.SUCCEEDED or not job.pdf_path:
+    if not job or job.project_token != project.token:
+        raise HTTPException(status_code=404, detail='pdf not found')
+    if job.status != JobStatus.SUCCEEDED or not job.pdf_path:
         raise HTTPException(status_code=404, detail='pdf not found')
     return FileResponse(job.pdf_path, media_type='application/pdf')

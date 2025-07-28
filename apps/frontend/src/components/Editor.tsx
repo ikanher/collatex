@@ -8,10 +8,11 @@ import { useCollabDoc } from '../hooks/useCollabDoc';
 
 interface Props {
   room: string;
+  token: string;
 }
 
 const Editor: React.FC<Props> = ({ room }) => {
-  const { ytext, awareness } = useCollabDoc(room);
+  const { ytext, awareness } = useCollabDoc(room, token);
   const divRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView>();
 

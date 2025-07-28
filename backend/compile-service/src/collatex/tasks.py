@@ -62,6 +62,6 @@ def compile_task(self: Task, job_id: str, tex_source: str) -> None:
     save_job(job)
     duration = perf_counter() - start
     status_label = 'succeeded' if job.status == JobStatus.SUCCEEDED else 'failed'
-    COMPILE_COUNTER.labels(status=status_label).inc()
-    COMPILE_DURATION.observe(duration)
+    COMPILE_COUNTER.labels(status=status_label, project_token=job.project_token).inc()
+    COMPILE_DURATION.labels(project_token=job.project_token).observe(duration)
     publish_status(job)

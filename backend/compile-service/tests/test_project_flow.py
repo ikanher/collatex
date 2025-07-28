@@ -21,14 +21,12 @@ def setup(monkeypatch):
     store_init(sync_client)
     app.state.redis = sync_client
     app.state.redis_async = async_client
-    from argon2 import PasswordHasher
-    app.state.ph = PasswordHasher()
     yield
     asyncio.run(async_client.aclose())
 
 
 @pytest.mark.asyncio
-async def test_signup_login_compile_stream(monkeypatch):
+async def test_project_compile_flow(monkeypatch):
     def instant(job_id: str, tex: str) -> None:
         job = get_job(job_id)
         assert job
@@ -41,15 +39,12 @@ async def test_signup_login_compile_stream(monkeypatch):
 
     monkeypatch.setattr(compile_task, 'delay', instant)
     async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
-        r = await client.post('/signup', json={'email': 'a@example.com', 'password': 'pw'})
-        assert r.status_code == 201
-        r = await client.post('/login', json={'email': 'a@example.com', 'password': 'pw'})
-        token = r.json()['access_token']
-        headers = {'Authorization': f'Bearer {token}'}
-        r = await client.post('/compile', json={'tex': 'x'}, headers=headers)
-        job_id = r.headers['Location'].split('/')[-1]
+        r = await client.post('/projects')
+        token = r.json()['token']
+        r = await client.post(f'/compile?project={token}', json={'tex': 'x'})
+        job_id = r.headers['Location'].split('/')[-1].split('?')[0]
         statuses = []
-        async with client.stream('GET', f'/stream/jobs/{job_id}', headers=headers) as s:
+        async with client.stream('GET', f'/stream/jobs/{job_id}?project={token}') as s:
             async for line in s.aiter_lines():
                 if line.startswith('data:'):
                     payload = json.loads(line[5:])
@@ -57,19 +52,17 @@ async def test_signup_login_compile_stream(monkeypatch):
                     if payload['status'] == 'SUCCEEDED':
                         break
         assert statuses[-1] == 'SUCCEEDED'
-        pdf = await client.get(f'/pdf/{job_id}', headers=headers)
+        pdf = await client.get(f'/pdf/{job_id}?project={token}')
         assert pdf.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_cross_tenant_isolation(monkeypatch):
+async def test_cross_project_isolation(monkeypatch):
     monkeypatch.setattr(compile_task, 'delay', lambda *a, **k: None)
     async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
-        await client.post('/signup', json={'email': 'a@example.com', 'password': 'pw'})
-        await client.post('/signup', json={'email': 'b@example.com', 'password': 'pw'})
-        ta = (await client.post('/login', json={'email': 'a@example.com', 'password': 'pw'})).json()['access_token']
-        tb = (await client.post('/login', json={'email': 'b@example.com', 'password': 'pw'})).json()['access_token']
-        r = await client.post('/compile', json={'tex': 'x'}, headers={'Authorization': f'Bearer {ta}'})
-        job_id = r.headers['Location'].split('/')[-1]
-        resp = await client.get(f'/jobs/{job_id}', headers={'Authorization': f'Bearer {tb}'})
+        a = (await client.post('/projects')).json()['token']
+        b = (await client.post('/projects')).json()['token']
+        r = await client.post(f'/compile?project={a}', json={'tex': 'x'})
+        job_id = r.headers['Location'].split('/')[-1].split('?')[0]
+        resp = await client.get(f'/jobs/{job_id}?project={b}')
         assert resp.status_code == 404
