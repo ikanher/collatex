@@ -3,7 +3,7 @@ import express from 'express';
 import { Server as WebSocketServer } from 'ws';
 import { setupWSConnection } from 'y-websocket/bin/utils';
 import { connectionsTotal, register } from './metrics';
-import jwt from 'jsonwebtoken';
+import { createClient } from 'redis';
 
 const PORT = Number(process.env.PORT) || 1234;
 const ALLOWED = new Set(
@@ -50,23 +50,26 @@ export function createApp(): express.Express {
 export function createServer(): http.Server {
   const app = createApp();
   const server = http.createServer(app);
+  const redis = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379/0' });
+  redis.connect().catch(() => undefined);
   const wss = new WebSocketServer({ noServer: true });
-  server.on('upgrade', (req, socket, head) => {
+  server.on('upgrade', async (req, socket, head) => {
+    const url = new URL(req.url || '/', 'http://localhost');
+    const match = url.pathname.match(/^\/yjs\/(\w+)/);
+    const token = match ? match[1] : null;
+    if (!token) {
+      socket.destroy();
+      return;
+    }
+    const exists = await redis.hGet('collatex:projects', token);
+    if (!exists) {
+      socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+      socket.destroy();
+      return;
+    }
     wss.handleUpgrade(req, socket, head, (ws) => {
-      const url = new URL(req.url || '/', 'http://localhost');
-      const token = url.searchParams.get('token');
-      try {
-        const payload = jwt.verify(
-          token || '',
-          process.env.COLLATEX_SECRET || 'changeme'
-        ) as jwt.JwtPayload;
-        (ws as any).userId = payload.sub;
-      } catch {
-        ws.close(4401);
-        return;
-      }
       setupWSConnection(ws, req);
-      connectionsTotal.inc();
+      connectionsTotal.labels(token).inc();
     });
   });
   return server;

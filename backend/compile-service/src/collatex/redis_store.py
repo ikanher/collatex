@@ -6,16 +6,32 @@ import json
 
 import redis
 
-from .models import Job, JobStatus
+from .models import Job, JobStatus, Project
 
 _REDIS: redis.Redis | None = None
 _PREFIX = 'job:'
 STATUS_CHANNEL = 'collatex:job_status'
+PROJECT_KEY = 'collatex:projects'
 
 
 def init(client: redis.Redis) -> None:
     global _REDIS
     _REDIS = client
+
+
+def create_project(project: Project) -> None:
+    if _REDIS is None:
+        raise RuntimeError('redis not initialized')
+    _REDIS.hset(PROJECT_KEY, project.token, project.created_at.isoformat())
+
+
+def get_project(token: str) -> Optional[Project]:
+    if _REDIS is None:
+        raise RuntimeError('redis not initialized')
+    created = _REDIS.hget(PROJECT_KEY, token)
+    if not created:
+        return None
+    return Project(token=token, created_at=datetime.fromisoformat(created.decode()))
 
 
 def get_job(job_id: str) -> Optional[Job]:
@@ -26,7 +42,7 @@ def get_job(job_id: str) -> Optional[Job]:
         return None
     return Job(
         id=job_id,
-        owner=data[b'owner'].decode(),
+        project_token=data[b'project_token'].decode(),
         status=JobStatus(data[b'status'].decode()),
         pdf_path=(data.get(b'pdf_path') or b'').decode() or None,
         log=(data.get(b'log') or b'').decode() or None,
@@ -38,7 +54,7 @@ def save_job(job: Job, ttl: int = 604800) -> None:
     if _REDIS is None:
         raise RuntimeError('redis not initialized')
     mapping = {
-        'owner': job.owner,
+        'project_token': job.project_token,
         'status': job.status.value,
         'created_at': job.created_at.isoformat(),
     }
@@ -53,5 +69,5 @@ def save_job(job: Job, ttl: int = 604800) -> None:
 def publish_status(job: Job) -> None:
     if _REDIS is None:
         raise RuntimeError('redis not initialized')
-    payload = json.dumps({'id': job.id, 'status': job.status.value})
+    payload = json.dumps({'id': job.id, 'status': job.status.value, 'project': job.project_token})
     _REDIS.publish(STATUS_CHANNEL, payload)

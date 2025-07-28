@@ -51,19 +51,9 @@ Tasks:
 # Quick start
 uv pip install -e backend/compile-service[worker]
 celery -A collatex.tasks worker -Q compile -l info &
-docker compose up --build
+docker compose up --build  # optional, native setup works too
 ./scripts/smoke.sh
 open http://localhost:5173
-```
-Once the stack is running, create a user and obtain a token:
-
-```bash
-curl -X POST http://localhost:8080/signup \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"demo@example.com","password":"demo123"}'
-curl -X POST http://localhost:8080/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"demo@example.com","password":"demo123"}'
 ```
 Do **not** open `index.html` directly with `file://`. Always run `npm run dev` or
 use the Dockerised frontend at `http://localhost:5173` so CORS and relative paths
@@ -81,6 +71,17 @@ uv pip install -e backend/compile-service[dev]
 ./scripts/dev_local.sh
 ```
 
+## Native run
+
+```bash
+# 1. start redis (or brew services start redis)
+cd backend/compile-service
+poetry install
+uvicorn app.main:app --reload
+celery -A collatex.tasks worker -Q compile -l info
+# then npm run dev in frontend
+```
+
 This installs Python and Node deps locally and starts the services with
 `COLLATEX_STATE=fakeredis`. Compilation produces a stub PDF unless Tectonic is
 installed.
@@ -95,20 +96,9 @@ graph TD
   redis <--> worker[Worker]
 ```
 
-## Authentication
-
-Use `/signup` then `/login` to obtain a JWT. Pass it as
-`Authorization: Bearer <token>` to the API and as `token=<token>` when
-connecting to the WebSocket.
-
 `COLLATEX_ALLOWED_ORIGINS` controls which frontend URLs may access the backend.
 The default is `http://localhost:5173`. Set it to a comma-separated list of
 origins when deploying.
-
-## Rate limits
-
-Each API token may send up to 20 compile requests per hour by default.
-Set `COLLATEX_RATE_LIMIT=20` to adjust the limit.
 
 ## Troubleshooting
 
