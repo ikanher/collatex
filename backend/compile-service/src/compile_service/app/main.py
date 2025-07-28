@@ -1,72 +1,36 @@
 from __future__ import annotations
 
-import base64
-from typing import Any, Dict, Awaitable, Callable
 import os
-import redis.asyncio as redis
+import uuid
+from datetime import datetime
 
-from prometheus_client import make_asgi_app
-
-from fastapi import FastAPI, HTTPException, Request, Depends
-from fastapi.encoders import jsonable_encoder
+import redis
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi.responses import FileResponse, JSONResponse, Response
+from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
-from .config import max_upload_bytes
-from .jobs import JobStatus, enqueue
-from .state import get_job, init as state_init
-from ..logging import configure_logging
-from .middleware import RequestIdMiddleware
-from ..auth import verify_token
-from .rate_limit import rate_limit
-from .models import CompileRequest, CompileResponse
-from .. import queue
-from .worker import start_worker, stop_worker
-from .security import contains_forbidden_tex
-
-MAX_UPLOAD_BYTES = max_upload_bytes()
-
-configure_logging()
+from collatex.models import Job, JobStatus
+from collatex.redis_store import init as store_init, get_job, save_job
+from collatex.tasks import compile_task
 
 app = FastAPI(title='CollaTeX Compile Service', version='0.1.0')
-app.mount('/metrics', make_asgi_app(), name='metrics')
 
 
 @app.on_event('startup')
-async def setup_redis() -> None:
-    state = os.getenv('COLLATEX_STATE', 'memory')
-    if state in {'redis', 'fakeredis'}:
-        url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
-        try:
-            if state == 'fakeredis':
-                raise RuntimeError('using fakeredis')
-            client = redis.from_url(url)  # type: ignore[no-untyped-call]
-            await client.ping()
-        except Exception:
-            import fakeredis.aioredis
-
-            client = fakeredis.aioredis.FakeRedis()
-        state_init(client)
-        queue.init(client)
-        app.state.redis = client
-
-
-@app.on_event('startup')
-def launch_worker() -> None:
-    if os.getenv('COLLATEX_STATE', 'memory') == 'memory':
-        start_worker()
-        app.state.worker_stop = stop_worker
+def setup() -> None:
+    url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+    client = redis.from_url(url)  # type: ignore[no-untyped-call]
+    store_init(client)
+    app.state.redis = client
 
 
 @app.on_event('shutdown')
-async def close_redis() -> None:
+def cleanup() -> None:
     client = getattr(app.state, 'redis', None)
     if client is not None:
-        await client.close()
-    stop = getattr(app.state, 'worker_stop', None)
-    if stop is not None:
-        stop()
+        client.close()
 
 
 origins = os.getenv('COLLATEX_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')
@@ -79,116 +43,42 @@ app.add_middleware(
 )
 
 
-class PreflightMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: FastAPI, allowed: list[str]):
-        super().__init__(app)
-        self.allowed = set(allowed)
-
-    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        if request.method == 'OPTIONS':
-            origin = request.headers.get('origin')
-            if origin and origin not in self.allowed:
-                return Response(status_code=403)
-        return await call_next(request)
-
-app.add_middleware(PreflightMiddleware, allowed=origins)  # type: ignore[arg-type]
-
-app.add_middleware(RequestIdMiddleware)
-
-
-@app.middleware('http')
-async def auth_middleware(
-    request: Request, call_next: Callable[[Request], Awaitable[Response]]
-) -> Response:
-    path = request.url.path
-    if path == '/healthz' or path.startswith('/metrics'):
-        return await call_next(request)
-    try:
-        token = await verify_token(request)
-        request.state.token = token
-    except HTTPException as exc:
-        return JSONResponse(status_code=exc.status_code, content={'detail': exc.detail})
-    return await call_next(request)
+class CompileRequest(BaseModel):
+    tex: str
 
 
 @app.get('/healthz')
-async def healthz() -> Dict[str, str]:
+def healthz() -> dict[str, str]:
     return {'status': 'ok'}
 
 
-async def _parse_compile_request(request: Request) -> CompileRequest:
-    length = request.headers.get('content-length')
-    if length and int(length) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail='payload too large')
-    body = await request.body()
-    if len(body) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail='payload too large')
-    try:
-        return CompileRequest.model_validate_json(body)
-    except Exception as exc:
-        if hasattr(exc, 'errors'):
-            detail = jsonable_encoder(exc.errors())
-        else:
-            detail = 'validation error'
-        raise HTTPException(status_code=400, detail=detail) from exc
-
-
-@app.post('/compile', response_model=CompileResponse, status_code=202)
-async def compile_endpoint(
-    req: CompileRequest = Depends(_parse_compile_request),
-    _: None = Depends(rate_limit),
-) -> CompileResponse:
-    _validate_request(req)
-    job_id = await enqueue(req)
-    return CompileResponse(jobId=job_id)
+@app.post('/compile', status_code=202)
+async def compile_endpoint(req: CompileRequest) -> Response:
+    job_id = str(uuid.uuid4())
+    job = Job(id=job_id, created_at=datetime.utcnow())
+    await run_in_threadpool(save_job, job)
+    compile_task.delay(job_id, req.tex)
+    return Response(status_code=202, headers={'Location': f'/jobs/{job_id}'})
 
 
 @app.get('/jobs/{job_id}')
 async def job_status(job_id: str) -> JSONResponse:
-    job = await get_job(job_id)
+    job = await run_in_threadpool(get_job, job_id)
     if not job:
         raise HTTPException(status_code=404, detail='job not found')
-    body: Dict[str, Any] = {
-        'jobId': job_id,
+    body = {
+        'jobId': job.id,
         'status': job.status.value,
-        'queuedAt': job.queued_at,
-        'startedAt': job.started_at,
-        'finishedAt': job.finished_at,
-        'error': job.error,
+        'log': job.log,
     }
-    if job.compile_log and job.status in {JobStatus.ERROR, JobStatus.DONE}:
-        body['log'] = job.compile_log
-    if job.pdf_bytes:
-        body['pdfUrl'] = f'/pdf/{job_id}'
+    if job.status == JobStatus.SUCCEEDED and job.pdf_path:
+        body['pdfUrl'] = f'/pdf/{job.id}'
     return JSONResponse(content=body)
 
 
 @app.get('/pdf/{job_id}')
-async def get_pdf(job_id: str) -> Response:
-    job = await get_job(job_id)
-    if not job or job.status != JobStatus.DONE or not job.pdf_bytes:
+async def get_pdf(job_id: str) -> FileResponse:
+    job = await run_in_threadpool(get_job, job_id)
+    if not job or job.status != JobStatus.SUCCEEDED or not job.pdf_path:
         raise HTTPException(status_code=404, detail='pdf not found')
-    return Response(
-        content=job.pdf_bytes,
-        media_type='application/pdf',
-        headers={'Cache-Control': 'no-store'},
-    )
-
-
-def _validate_request(req: CompileRequest) -> None:
-    seen = set()
-    total_bytes = 0
-    for f in req.files:
-        if f.path in seen:
-            raise HTTPException(status_code=400, detail=f'duplicate path: {f.path}')
-        seen.add(f.path)
-        try:
-            raw = base64.b64decode(f.contentBase64, validate=True)
-        except Exception as exc:
-            raise HTTPException(status_code=400, detail=f'invalid base64 for {f.path}') from exc
-        if contains_forbidden_tex(raw):
-            raise HTTPException(status_code=422, detail='shell escape disallowed')
-        total_bytes += len(raw)
-
-    if total_bytes > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail='payload too large')
+    return FileResponse(job.pdf_path, media_type='application/pdf')

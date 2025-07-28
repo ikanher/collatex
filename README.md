@@ -49,6 +49,8 @@ Tasks:
 ## Dev loop
 ```bash
 # Quick start
+uv pip install -e backend/compile-service[worker]
+celery -A collatex.tasks worker -Q compile -l info &
 docker compose up --build
 ./scripts/smoke.sh
 open http://localhost:5173
