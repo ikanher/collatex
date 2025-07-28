@@ -33,6 +33,11 @@ app = FastAPI(title='CollaTeX Compile Service', version='0.1.0')
 app.mount('/metrics', make_asgi_app())
 
 
+@app.get('/', include_in_schema=False)
+def root() -> dict[str, str]:
+    return {'message': 'Collatex backend', 'docs': '/docs', 'health': '/healthz'}
+
+
 @app.on_event('startup')
 def setup() -> None:
     url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
