@@ -2,16 +2,13 @@ version: "3.9"
 services:
   redis:
     image: redis:7-alpine
-  backend:
-    build:
-      context: ./backend/compile-service
-      network: host
   compile-service:
     build:
       context: .
+      dockerfile: Dockerfile
       network: host
     ports:
-      - "8000:8000"
+      - "8080:8000"
     volumes:
       - ./storage:/app/storage
     environment:
@@ -20,9 +17,10 @@ services:
       COLLATEX_API_TOKEN: changeme
       COLLATEX_ALLOWED_ORIGINS: http://localhost:5173
       COLLATEX_RATE_LIMIT: 20
-    ports: ["8080:8080"]
   worker:
-    build: ./backend/compile-service
+    build:
+      context: .
+      dockerfile: Dockerfile
     command: celery -A collatex.tasks worker -Q compile -l info
     volumes:
       - ./storage:/app/storage

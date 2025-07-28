@@ -5,7 +5,7 @@ if command -v docker >/dev/null 2>&1; then
   echo "Docker detected. If you want the containerised stack, run: docker compose up" >&2
 fi
 
-uv pip install -e backend/compile-service[dev]
+uv pip install -e ./backend/compile-service[dev]
 
 npm --prefix apps/collab_gateway install
 npm --prefix apps/frontend install

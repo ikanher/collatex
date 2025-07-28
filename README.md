@@ -59,7 +59,7 @@ work correctly.
 ## Installing dev deps
 
 ```bash
-uv pip install -e backend/compile-service[dev]
+uv pip install -e ./backend/compile-service[dev]
 ```
 
 ## Running without Docker
