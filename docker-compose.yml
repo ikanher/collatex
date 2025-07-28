@@ -4,22 +4,24 @@ services:
     image: redis:7-alpine
   backend:
     build: ./backend/compile-service
+    volumes:
+      - ./storage:/app/storage
     environment:
       COLLATEX_STATE: redis
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://redis:6379/0
       COLLATEX_API_TOKEN: changeme
       COLLATEX_ALLOWED_ORIGINS: http://localhost:5173
       COLLATEX_RATE_LIMIT: 20
     ports: ["8080:8080"]
   worker:
     build: ./backend/compile-service
-    entrypoint: ["uv", "run", "compile_service.worker:main"]
+    command: celery -A collatex.tasks worker -Q compile -l info
+    volumes:
+      - ./storage:/app/storage
     environment:
-      COLLATEX_STATE: redis
-      REDIS_URL: redis://redis:6379
-      COLLATEX_API_TOKEN: changeme
-      COLLATEX_ALLOWED_ORIGINS: http://localhost:5173
-      COLLATEX_RATE_LIMIT: 20
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
   gateway:
     build: ./apps/collab_gateway
     environment:

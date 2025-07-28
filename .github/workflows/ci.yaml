@@ -18,15 +18,20 @@ jobs:
         run: pip install uv
       - name: Install deps
         run: uv pip install -e backend/compile-service[dev]
-      - name: Start Redis (if needed)
-        if: matrix.state == 'redis'
-        run: docker run -d -p 6379:6379 redis:7-alpine
+      - name: Start stack
+        run: docker compose up -d --build
+      - name: Wait for API
+        run: |
+          for i in {1..30}; do
+            curl -fs http://localhost:8080/healthz && break
+            sleep 2
+          done
       - name: Lint
         run: make lint
       - name: Type-check
         run: make typecheck
       - name: Tests
-        run: make test
+        run: uv run -m pytest -n auto -q
   gateway:
     runs-on: ubuntu-latest
     strategy:

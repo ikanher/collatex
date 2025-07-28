@@ -49,11 +49,8 @@ Tasks:
 ## Dev loop
 ```bash
 # Quick start
-uv pip install -e backend/compile-service[worker]
-celery -A collatex.tasks worker -Q compile -l info &
-docker compose up --build  # optional, native setup works too
-./scripts/smoke.sh
-open http://localhost:5173
+cp .env.example .env
+docker compose up --build
 ```
 Do **not** open `index.html` directly with `file://`. Always run `npm run dev` or
 use the Dockerised frontend at `http://localhost:5173` so CORS and relative paths
