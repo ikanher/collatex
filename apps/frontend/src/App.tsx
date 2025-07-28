@@ -12,7 +12,7 @@ const App: React.FC = () => {
   const match = window.location.pathname.match(/^\/p\/(\w+)/);
   if (!match) {
     return (
-      <button className="m-4 p-2 bg-blue-500 text-white" onClick={newProject}">
+      <button className="m-4 p-2 bg-blue-500 text-white" onClick={newProject}>
         New Project
       </button>
     );

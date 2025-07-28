@@ -11,7 +11,7 @@ interface Props {
   token: string;
 }
 
-const Editor: React.FC<Props> = ({ room }) => {
+const Editor: React.FC<Props> = ({ room, token }) => {
   const { ytext, awareness } = useCollabDoc(room, token);
   const divRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView>();

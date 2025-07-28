@@ -3,7 +3,9 @@ import express from 'express';
 import { Server as WebSocketServer } from 'ws';
 // The utils module ships only JavaScript, so we import the file directly
 // and rely on our local declaration for types.
-import { setupWSConnection } from 'y-websocket/bin/utils.js';
+// y-websocket exposes the utils subpath explicitly. Importing without the file
+// extension ensures Node can resolve it via the package export map.
+import { setupWSConnection } from 'y-websocket/bin/utils';
 import { connectionsTotal, register } from './metrics';
 import { createClient } from 'redis';
 
