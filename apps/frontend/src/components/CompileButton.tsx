@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { startCompile, pollJob, fetchPdf, CompileStatus } from '../api/compile';
+import { startCompile, fetchPdf, CompileStatus } from '../api/compile';
 import { useCollabDoc } from '../hooks/useCollabDoc';
+import { API_URL } from '../config';
 
 interface Props {
   room: string;
@@ -17,25 +18,24 @@ const CompileButton: React.FC<Props> = ({ room, onPdf, onToast, onLog, onStatus 
   const handleClick = async () => {
     try {
       const jobId = await startCompile(ytext.toString());
-      setStatus('queued');
-      onStatus('queued');
-      let result = await pollJob(jobId);
-      while (result.status === 'queued' || result.status === 'running') {
-        setStatus(result.status);
-        onStatus(result.status);
-        await new Promise((r) => setTimeout(r, 700));
-        result = await pollJob(jobId);
-      }
-      setStatus(result.status);
-      onStatus(result.status);
-      onLog(result.log || null);
-      if (result.status === 'done') {
-        const blob = await fetchPdf(jobId);
-        const blobUrl = URL.createObjectURL(blob);
-        onPdf(blobUrl);
-      } else {
-        onToast(result.status);
-      }
+      setStatus('PENDING');
+      onStatus('PENDING');
+      const es = new EventSource(`${API_URL}/stream/jobs/${jobId}`);
+      es.onmessage = async (ev) => {
+        const msg = JSON.parse(ev.data) as { id: string; status: CompileStatus };
+        setStatus(msg.status);
+        onStatus(msg.status);
+        if (msg.status === 'SUCCEEDED') {
+          es.close();
+          const blob = await fetchPdf(jobId);
+          const blobUrl = URL.createObjectURL(blob);
+          onPdf(blobUrl);
+          onLog(null);
+        } else if (msg.status === 'FAILED') {
+          es.close();
+          onToast('failed');
+        }
+      };
     } catch (err) {
       onToast('error');
       setStatus('idle');
@@ -47,7 +47,7 @@ const CompileButton: React.FC<Props> = ({ room, onPdf, onToast, onLog, onStatus 
     <button
       className="absolute top-2 left-2 bg-blue-500 text-white px-2 py-1"
       onClick={handleClick}
-      disabled={status === 'queued' || status === 'running'}
+      disabled={status === 'PENDING' || status === 'RUNNING'}
     >
       Compile
     </button>

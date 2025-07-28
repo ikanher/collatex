@@ -5,17 +5,27 @@ import uuid
 from datetime import datetime
 
 import redis
+import redis.asyncio as aioredis
+import json
+from typing import AsyncGenerator
+from prometheus_client import make_asgi_app
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from collatex.models import Job, JobStatus
-from collatex.redis_store import init as store_init, get_job, save_job
+from collatex.redis_store import (
+    init as store_init,
+    get_job,
+    save_job,
+    STATUS_CHANNEL,
+)
 from collatex.tasks import compile_task
 
 app = FastAPI(title='CollaTeX Compile Service', version='0.1.0')
+app.mount('/metrics', make_asgi_app())
 
 
 @app.on_event('startup')
@@ -24,6 +34,7 @@ def setup() -> None:
     client = redis.from_url(url)  # type: ignore[no-untyped-call]
     store_init(client)
     app.state.redis = client
+    app.state.redis_async = aioredis.from_url(url)  # type: ignore[no-untyped-call]
 
 
 @app.on_event('shutdown')
@@ -31,6 +42,10 @@ def cleanup() -> None:
     client = getattr(app.state, 'redis', None)
     if client is not None:
         client.close()
+    client_async = getattr(app.state, 'redis_async', None)
+    if client_async is not None:
+        import asyncio
+        asyncio.run(client_async.aclose())
 
 
 origins = os.getenv('COLLATEX_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')
@@ -74,6 +89,32 @@ async def job_status(job_id: str) -> JSONResponse:
     if job.status == JobStatus.SUCCEEDED and job.pdf_path:
         body['pdfUrl'] = f'/pdf/{job.id}'
     return JSONResponse(content=body)
+
+
+@app.get('/stream/jobs/{job_id}')
+async def stream_job(job_id: str) -> Response:
+    redis_async = app.state.redis_async
+    pubsub = redis_async.pubsub()
+    await pubsub.subscribe(STATUS_CHANNEL)
+
+    async def event_gen() -> AsyncGenerator[str, None]:
+        try:
+            while True:
+                msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.1)
+                if msg is None:
+                    yield ': ping\n\n'
+                    continue
+                data = json.loads(msg['data'])
+                if data.get('id') != job_id:
+                    continue
+                yield f'data: {json.dumps(data)}\n\n'
+                if data.get('status') in {'SUCCEEDED', 'FAILED'}:
+                    break
+        finally:
+            await pubsub.unsubscribe(STATUS_CHANNEL)
+            await pubsub.close()
+
+    return StreamingResponse(event_gen(), media_type='text/event-stream')
 
 
 @app.get('/pdf/{job_id}')

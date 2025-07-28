@@ -16,7 +16,7 @@ const BuildLog: React.FC<Props> = ({ log, status, open, onToggle }) => {
       </button>
       {open && (
         <div className="p-2 font-mono text-sm overflow-y-auto max-h-64">
-          {status === 'running' || status === 'queued' ? (
+          {status === 'RUNNING' || status === 'PENDING' ? (
             <span>Compiling...</span>
           ) : (
             <pre>{log}</pre>

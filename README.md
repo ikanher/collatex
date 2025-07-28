@@ -104,3 +104,12 @@ Set `COLLATEX_RATE_LIMIT=20` to adjust the limit.
 
 If a compile fails, open the **Build Log** panel under the PDF viewer. It
 captures the last part of the Tectonic output so you can spot LaTeX errors.
+
+## Realtime status
+
+Clients may follow compile progress via Server-Sent Events. After posting to
+`/compile` the response header `Location` includes the job id. Open an
+`EventSource` on `/stream/jobs/{id}` and listen for JSON messages of the form
+`{"id":"<id>","status":"RUNNING|SUCCEEDED|FAILED"}`. A heartbeat comment is sent
+every 100&nbsp;ms to keep proxies happy. Prometheus metrics are exposed at
+`/metrics` for monitoring compile counts and durations.

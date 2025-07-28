@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional, cast, Dict
+import json
 
 import redis
 
@@ -9,6 +10,7 @@ from .models import Job, JobStatus
 
 _REDIS: redis.Redis | None = None
 _PREFIX = 'job:'
+STATUS_CHANNEL = 'collatex:job_status'
 
 
 def init(client: redis.Redis) -> None:
@@ -44,3 +46,10 @@ def save_job(job: Job, ttl: int = 604800) -> None:
         mapping['log'] = job.log
     _REDIS.hset(f'{_PREFIX}{job.id}', mapping=mapping)
     _REDIS.expire(f'{_PREFIX}{job.id}', ttl)
+
+
+def publish_status(job: Job) -> None:
+    if _REDIS is None:
+        raise RuntimeError('redis not initialized')
+    payload = json.dumps({'id': job.id, 'status': job.status.value})
+    _REDIS.publish(STATUS_CHANNEL, payload)
