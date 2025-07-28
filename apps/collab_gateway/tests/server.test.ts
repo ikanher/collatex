@@ -3,13 +3,14 @@ import { createServer } from '../src/index';
 import { connectionsTotal, register } from '../src/metrics';
 import WebSocket from 'ws';
 import { AddressInfo } from 'net';
+import jwt from 'jsonwebtoken';
 
 let server: ReturnType<typeof createServer>;
 let baseURL: string;
 
 beforeEach((done) => {
   process.env.ALLOWED_ORIGINS = 'localhost:3000';
-  process.env.COLLATEX_API_TOKEN = 'secret';
+  process.env.COLLATEX_SECRET = 'secret';
   server = createServer();
   server.listen(0, () => {
     const address = server.address() as AddressInfo;
@@ -47,7 +48,8 @@ test('CORS preflight denied', async () => {
 });
 
 test('WebSocket increments metric with token', async () => {
-  const wsUrl = baseURL.replace('http', 'ws') + '?token=secret';
+  const token = jwt.sign({ sub: 'u1' }, 'secret', { expiresIn: '1h' });
+  const wsUrl = baseURL.replace('http', 'ws') + `?token=${token}`;
   await new Promise((resolve) => {
     const ws = new WebSocket(wsUrl);
     ws.on('open', () => ws.close());
@@ -57,8 +59,8 @@ test('WebSocket increments metric with token', async () => {
   expect(res.text).toContain('collatex_ws_connections_total 1');
 });
 
-test('WebSocket rejects without token', (done) => {
-  const wsUrl = baseURL.replace('http', 'ws');
+test('WebSocket rejects invalid token', (done) => {
+  const wsUrl = baseURL.replace('http', 'ws') + '?token=bad';
   const ws = new WebSocket(wsUrl);
   ws.on('close', (code) => {
     expect(code).toBe(4401);

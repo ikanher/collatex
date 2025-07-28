@@ -1,0 +1,14 @@
+services:
+  backend:
+    environment:
+      COLLATEX_SECRET: supersecret
+      COLLATEX_DEMO_EMAIL: demo@example.com
+      COLLATEX_DEMO_PASSWORD: demo123
+  worker:
+    environment:
+      COLLATEX_SECRET: supersecret
+      COLLATEX_DEMO_EMAIL: demo@example.com
+      COLLATEX_DEMO_PASSWORD: demo123
+  gateway:
+    environment:
+      COLLATEX_SECRET: supersecret

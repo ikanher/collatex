@@ -55,6 +55,16 @@ docker compose up --build
 ./scripts/smoke.sh
 open http://localhost:5173
 ```
+Once the stack is running, create a user and obtain a token:
+
+```bash
+curl -X POST http://localhost:8080/signup \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@example.com","password":"demo123"}'
+curl -X POST http://localhost:8080/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@example.com","password":"demo123"}'
+```
 Do **not** open `index.html` directly with `file://`. Always run `npm run dev` or
 use the Dockerised frontend at `http://localhost:5173` so CORS and relative paths
 work correctly.
@@ -87,9 +97,9 @@ graph TD
 
 ## Authentication
 
-Set `COLLATEX_API_TOKEN` in your `.env` and pass the same value in the frontend
-settings dialog. The compile API expects `Authorization: Bearer <token>` and the
-WebSocket URL must include `token=<token>`.
+Use `/signup` then `/login` to obtain a JWT. Pass it as
+`Authorization: Bearer <token>` to the API and as `token=<token>` when
+connecting to the WebSocket.
 
 `COLLATEX_ALLOWED_ORIGINS` controls which frontend URLs may access the backend.
 The default is `http://localhost:5173`. Set it to a comma-separated list of

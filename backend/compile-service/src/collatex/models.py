@@ -15,6 +15,7 @@ class JobStatus(str, Enum):
 @dataclass
 class Job:
     id: str
+    owner: str
     status: JobStatus = JobStatus.PENDING
     pdf_path: str | None = None
     log: str | None = None

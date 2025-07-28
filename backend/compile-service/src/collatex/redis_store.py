@@ -26,6 +26,7 @@ def get_job(job_id: str) -> Optional[Job]:
         return None
     return Job(
         id=job_id,
+        owner=data[b'owner'].decode(),
         status=JobStatus(data[b'status'].decode()),
         pdf_path=(data.get(b'pdf_path') or b'').decode() or None,
         log=(data.get(b'log') or b'').decode() or None,
@@ -37,6 +38,7 @@ def save_job(job: Job, ttl: int = 604800) -> None:
     if _REDIS is None:
         raise RuntimeError('redis not initialized')
     mapping = {
+        'owner': job.owner,
         'status': job.status.value,
         'created_at': job.created_at.isoformat(),
     }
