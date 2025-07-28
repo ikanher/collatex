@@ -3,6 +3,7 @@ import express from 'express';
 import { Server as WebSocketServer } from 'ws';
 import { setupWSConnection } from 'y-websocket/bin/utils';
 import { connectionsTotal, register } from './metrics';
+import jwt from 'jsonwebtoken';
 
 const PORT = Number(process.env.PORT) || 1234;
 const ALLOWED = new Set(
@@ -54,7 +55,13 @@ export function createServer(): http.Server {
     wss.handleUpgrade(req, socket, head, (ws) => {
       const url = new URL(req.url || '/', 'http://localhost');
       const token = url.searchParams.get('token');
-      if (token !== process.env.COLLATEX_API_TOKEN) {
+      try {
+        const payload = jwt.verify(
+          token || '',
+          process.env.COLLATEX_SECRET || 'changeme'
+        ) as jwt.JwtPayload;
+        (ws as any).userId = payload.sub;
+      } catch {
         ws.close(4401);
         return;
       }
