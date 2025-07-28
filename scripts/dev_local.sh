@@ -15,9 +15,15 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-COLLATEX_STATE=fakeredis uv run compile_service.app.main:app &
+(
+  cd backend/compile-service && \
+  PYTHONPATH="$(pwd)/src" COLLATEX_STATE=fakeredis uv run uvicorn compile_service.app.main:app --reload --port 8080
+) &
 APP_PID=$!
-COLLATEX_STATE=fakeredis uv run compile_service.worker:main &
+(
+  cd backend/compile-service && \
+  PYTHONPATH="$(pwd)/src" COLLATEX_STATE=fakeredis uv run -m compile_service.worker
+) &
 WORKER_PID=$!
 npm --prefix apps/collab_gateway run dev &
 GATEWAY_PID=$!

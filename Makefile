@@ -17,10 +17,10 @@ dev-backend:
 
 # Collab websocket (pin y-websocket and auto-confirm with -y)
 dev-collab: check-node
-        npm --prefix apps/collab_gateway run dev
+	npm --prefix apps/collab_gateway run dev
 
 dev-frontend: check-node
-        npm --prefix apps/frontend run dev
+	npm --prefix apps/frontend run dev
 
 dev-redis:
 	docker run --rm -p 6379:6379 redis:7-alpine
@@ -33,7 +33,7 @@ test:
 	if [ "$$COLLATEX_STATE" = "redis" ]; then \
 	python scripts/check_redis.py; \
 	fi
-	cd backend/compile-service && uv run --extra dev -m pytest -n auto -q
+	cd backend/compile-service && PYTHONPATH="$$(pwd)/src" uv run --extra dev -m pytest -n auto -q
 
 lint:
 	cd backend/compile-service && uv run --extra dev ruff check .

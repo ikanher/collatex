@@ -6,11 +6,15 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "typeRoots": ["./src/types", "./node_modules/@types"]
   },
   "include": [
     "src/**/*.ts",
     "tests/**/*.ts",
     "src/types/**/*.d.ts"
+  ],
+  "files": [
+    "src/types/y-websocket.d.ts"
   ]
 }
