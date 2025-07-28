@@ -32,13 +32,13 @@ const EditorPage: React.FC = () => {
         onLog={(l) => setLog(l)}
         onStatus={(s) => {
           setStatus(s);
-          if (s === 'queued' || s === 'running') {
+          if (s === 'PENDING' || s === 'RUNNING') {
             setLogOpen(true);
           }
-          if (s === 'done') {
+          if (s === 'SUCCEEDED') {
             setLogOpen(false);
           }
-          if (s === 'error') {
+          if (s === 'FAILED') {
             setLogOpen(true);
           }
         }}
