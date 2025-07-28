@@ -51,6 +51,8 @@ Tasks:
 # Quick start
 cp .env.example .env
 docker compose up --build
+open http://localhost:5173           # UI
+curl http://localhost:8080/healthz   # API
 ```
 Do **not** open `index.html` directly with `file://`. Always run `npm run dev` or
 use the Dockerised frontend at `http://localhost:5173` so CORS and relative paths

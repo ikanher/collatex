@@ -1,18 +1,15 @@
 version: "3.9"
 services:
-  redis:
-    image: redis:7-alpine
   backend:
     build: ./backend/compile-service
+    ports:
+      - "8080:8000"
     volumes:
       - ./storage:/app/storage
     environment:
-      COLLATEX_STATE: redis
-      REDIS_URL: redis://redis:6379/0
-      COLLATEX_API_TOKEN: changeme
-      COLLATEX_ALLOWED_ORIGINS: http://localhost:5173
-      COLLATEX_RATE_LIMIT: 20
-    ports: ["8080:8080"]
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
   worker:
     build: ./backend/compile-service
     command: celery -A collatex.tasks worker -Q compile -l info
@@ -23,16 +20,21 @@ services:
     depends_on:
       - redis
   gateway:
-    build: ./apps/collab_gateway
+    build: ./gateway
+    ports:
+      - "1234:1234"
     environment:
-      PORT: 1234
-      ALLOWED_ORIGINS: localhost
-      COLLATEX_API_TOKEN: changeme
-    ports: ["1234:1234"]
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
   frontend:
-    build:
-      context: ./apps/frontend
-      args:
-        VITE_API_TOKEN: changeme
-    ports: ["5173:80"]
+    build: ./frontend
+    ports:
+      - "5173:80"
+    environment:
+      - VITE_API_ORIGIN=http://localhost:8080
+    depends_on:
+      - backend
+  redis:
+    image: redis:7-alpine
 
