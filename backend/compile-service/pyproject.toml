@@ -44,3 +44,15 @@ inline-quotes = 'single'
 [tool.mypy]
 python_version = '3.12'
 strict = true
+
+[dependency-groups]
+dev = [
+    "celery>=5.0.0",
+    "fakeredis>=2.30.2",
+    "httpx>=0.28.1",
+    "mypy>=1.17.0",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.12.5",
+]
