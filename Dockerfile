@@ -4,6 +4,6 @@ RUN curl -L https://github.com/tectonic-typesetting/tectonic/releases/download/t
 WORKDIR /app
 COPY backend/compile-service backend/compile-service
 RUN pip install uv
-RUN uv pip install --system backend/compile-service[dev]
+RUN uv pip install --system ./backend/compile-service[dev]
 WORKDIR /app/backend/compile-service
 CMD ["uvicorn", "compile_service.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,5 +1,5 @@
 services:
-  backend:
+  compile-service:
     environment:
       COLLATEX_SECRET: supersecret
       COLLATEX_DEMO_EMAIL: demo@example.com
