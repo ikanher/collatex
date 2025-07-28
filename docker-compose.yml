@@ -3,7 +3,15 @@ services:
   redis:
     image: redis:7-alpine
   backend:
-    build: ./backend/compile-service
+    build:
+      context: ./backend/compile-service
+      network: host
+  compile-service:
+    build:
+      context: .
+      network: host
+    ports:
+      - "8000:8000"
     volumes:
       - ./storage:/app/storage
     environment:
