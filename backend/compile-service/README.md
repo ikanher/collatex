@@ -21,7 +21,7 @@ export COLLATEX_STATE=redis
 ## Example request
 
 ```bash
-curl -X POST http://localhost:8080/compile \
+curl -X POST http://localhost:8000/compile \
   -H 'Content-Type: application/json' \
   -d '{"projectId":"demo","entryFile":"main.tex","engine":"tectonic","files":[{"path":"main.tex","contentBase64":"$(base64 -w0 examples/minimal/main.tex)"}],"options":{}}'
 ```
@@ -29,13 +29,13 @@ curl -X POST http://localhost:8080/compile \
 You will receive a job id. Check status:
 
 ```bash
-curl http://localhost:8080/jobs/<jobId>
+curl http://localhost:8000/jobs/<jobId>
 ```
 
 When `status` becomes `done`, download the PDF:
 
 ```bash
-curl -o out.pdf http://localhost:8080/pdf/<jobId>
+curl -o out.pdf http://localhost:8000/pdf/<jobId>
 ```
 
 ## Limits and errors
