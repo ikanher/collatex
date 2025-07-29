@@ -8,8 +8,13 @@ import os
 import redis
 
 from .models import Job, JobStatus, Project
+from .settings import TESTING, REDIS_URL
 
-_REDIS: redis.Redis | None = None
+if TESTING:
+    import fakeredis
+    _REDIS: redis.Redis = fakeredis.FakeRedis(decode_responses=True)
+else:
+    _REDIS: redis.Redis = redis.StrictRedis.from_url(REDIS_URL)
 _PREFIX = 'job:'
 STATUS_CHANNEL = 'collatex:job_status'
 PROJECT_KEY = 'collatex:projects'
