@@ -35,6 +35,12 @@ test:
 	fi
 	cd backend/compile-service && PYTHONPATH="$$(pwd)/src" uv run --extra dev -m pytest -n auto -q
 
+test-verbose:
+	if [ "$$COLLATEX_STATE" = "redis" ]; then \
+	python scripts/check_redis.py; \
+	fi
+	cd backend/compile-service && PYTHONPATH="$$(pwd)/src" uv run --extra dev -m pytest
+
 lint:
 	cd backend/compile-service && uv run --extra dev ruff check .
 
