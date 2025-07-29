@@ -12,12 +12,11 @@ import { useCollabDoc } from '../src/hooks/useCollabDoc';
 
 describe('useCollabDoc', () => {
   it('connects to env url and room', () => {
-    const { result } = renderHook(() => useCollabDoc('room1'));
+    const { result } = renderHook(() => useCollabDoc('room1', 'tkn'));
     expect(WebsocketProvider).toHaveBeenCalledWith(
-      'ws://collab:1234',
+      'ws://collab:1234/yjs/tkn',
       'room1',
-      expect.any(Y.Doc),
-      { params: { token: 'tkn' } }
+      expect.any(Y.Doc)
     );
     act(() => {
       result.current.ytext.insert(0, 'hi');

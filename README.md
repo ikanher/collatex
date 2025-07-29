@@ -68,6 +68,10 @@ uv pip install -e ./backend/compile-service[dev]
 ./scripts/dev_local.sh
 ```
 
+Open `http://localhost:5173` and click **New Project**. Share the `/p/<token>`
+URL with a second tab to see real-time edits. Type LaTeX on the left,
+press **Compile** and the PDF iframe reloads on the right.
+
 `dev_local.sh` automatically starts Redis on port 6379 if it's not running. If
 the `redis-server` binary is missing, it falls back to an in-process redislite
 instance.
