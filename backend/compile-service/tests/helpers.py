@@ -17,4 +17,4 @@ def require_redis() -> None:
         with socket.create_connection((host, port), timeout=1):
             return
     except OSError:
-        pytest.skip('Redis not available', allow_module_level=True)
+        pass

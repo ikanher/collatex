@@ -25,6 +25,7 @@ dev = [
   'ruff>=0.5',
   'fakeredis>=2.24.0',
   'celery==5',
+  'asgi_lifespan>=2.1',
 ]
 worker = [
   'celery==5'
@@ -55,4 +56,5 @@ dev = [
     "pytest-asyncio>=1.1.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.12.5",
+    "asgi_lifespan>=2.1",
 ]

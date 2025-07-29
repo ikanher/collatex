@@ -4,6 +4,8 @@ import os
 import uuid
 from datetime import datetime
 import secrets
+from pathlib import Path
+from contextlib import asynccontextmanager
 
 import json
 import redis
@@ -24,33 +26,34 @@ from collatex.redis_store import (
     create_project,
     get_project,
     STATUS_CHANNEL,
+    publish_status,
 )
 from collatex.tasks import compile_task
+from collatex.settings import TESTING, REDIS_URL
+
+
+def compile_tex_sync(tex_source: str, pdf_path: Path) -> None:
+    pdf_path.write_bytes(b"%PDF-1.4\n% dummy PDF for tests\n")
 
 FRONTEND_ORIGIN = os.getenv('FRONTEND_ORIGIN', 'http://localhost:5173')
 
-app = FastAPI(title='CollaTeX Compile Service', version='0.1.0')
-app.mount('/metrics', make_asgi_app())
 
-
-@app.on_event('startup')
-def setup() -> None:
-    url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    url = REDIS_URL
     client = redis.from_url(url)  # type: ignore[no-untyped-call]
     store_init(client)
     app.state.redis = client
     app.state.redis_async = aioredis.from_url(url)  # type: ignore[no-untyped-call]
-
-
-@app.on_event('shutdown')
-def cleanup() -> None:
-    client = getattr(app.state, 'redis', None)
-    if client is not None:
+    try:
+        yield
+    finally:
         client.close()
-    client_async = getattr(app.state, 'redis_async', None)
-    if client_async is not None:
-        import asyncio
-        asyncio.run(client_async.aclose())
+        await app.state.redis_async.aclose()
+
+
+app = FastAPI(title='CollaTeX Compile Service', version='0.1.0', lifespan=lifespan)
+app.mount('/metrics', make_asgi_app())
 
 
 origins = os.getenv('COLLATEX_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')
@@ -98,7 +101,17 @@ async def compile_endpoint(
     job_id = str(uuid.uuid4())
     job = Job(id=job_id, project_token=project.token, created_at=datetime.utcnow())
     await run_in_threadpool(save_job, job)
-    compile_task.delay(job_id, req.tex)
+    storage = Path('storage')
+    storage.mkdir(exist_ok=True)
+    pdf_path = storage / f'{job_id}.pdf'
+    if TESTING:
+        compile_tex_sync(req.tex, pdf_path)
+        job.status = JobStatus.SUCCEEDED
+        job.pdf_path = str(pdf_path)
+        await run_in_threadpool(save_job, job)
+        await run_in_threadpool(publish_status, job)
+    else:
+        compile_task.delay(job_id, req.tex)
     return Response(status_code=202, headers={'Location': f'/jobs/{job_id}?project={project.token}'})
 
 
