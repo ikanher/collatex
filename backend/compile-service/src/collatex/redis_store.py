@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, cast, Dict
 import json
+import os
 
 import redis
 
@@ -16,7 +17,12 @@ PROJECT_KEY = 'collatex:projects'
 
 def init(client: redis.Redis) -> None:
     global _REDIS
-    _REDIS = client
+    if os.getenv('COLLATEX_USE_REDISLITE'):
+        import redislite  # type: ignore
+
+        _REDIS = redislite.StrictRedis()
+    else:
+        _REDIS = client
 
 
 def create_project(project: Project) -> None:
