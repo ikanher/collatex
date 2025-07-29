@@ -30,11 +30,14 @@ services:
       - redis
   gateway:
     build: ./apps/collab_gateway
+    ports:
+      - "1234:1234"
+    depends_on:
+      - redis
     environment:
       PORT: 1234
       ALLOWED_ORIGINS: localhost
       COLLATEX_API_TOKEN: changeme
-    ports: ["1234:1234"]
   frontend:
     build:
       context: ./apps/frontend

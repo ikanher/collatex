@@ -49,6 +49,8 @@ jobs:
         run: |
           npm run lint --workspace apps/collab_gateway
           npm test --workspace apps/collab_gateway
+      - name: Smoke build
+        run: docker compose build gateway
 
   frontend:
     runs-on: ubuntu-latest

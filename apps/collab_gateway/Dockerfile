@@ -1,7 +1,14 @@
-FROM node:20-alpine
+FROM node:20-alpine AS build
 WORKDIR /app
+COPY package*.json ./
+RUN npm ci
 COPY . .
-# Install all deps including dev tools (for tsc), then prune
-RUN npm ci && npm run build && npm prune --omit=dev
+RUN npm run build
+
+FROM node:20-alpine AS prod
+WORKDIR /app
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/package*.json ./
+RUN npm ci --omit=dev
 CMD ["node", "dist/index.js"]
 
