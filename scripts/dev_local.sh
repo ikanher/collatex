@@ -5,6 +5,15 @@ if command -v docker >/dev/null 2>&1; then
   echo "Docker detected. If you want the containerised stack, run: docker compose up" >&2
 fi
 
+if ! nc -z localhost 6379; then
+  echo "Starting local Redis on port 6379"
+  if command -v redis-server >/dev/null 2>&1; then
+    redis-server --daemonize yes
+  else
+    export COLLATEX_USE_REDISLITE=1
+  fi
+fi
+
 uv pip install -e ./backend/compile-service[dev]
 
 npm --prefix apps/collab_gateway install
@@ -17,12 +26,12 @@ trap cleanup EXIT INT TERM
 
 (
   cd backend/compile-service && \
-  PYTHONPATH="$(pwd)/src" COLLATEX_STATE=fakeredis uv run uvicorn compile_service.app.main:app --reload --port 8080
+  PYTHONPATH="$(pwd)/src" COLLATEX_STATE=redis uv run uvicorn compile_service.app.main:app --reload --port 8080
 ) &
 APP_PID=$!
 (
   cd backend/compile-service && \
-  PYTHONPATH="$(pwd)/src" COLLATEX_STATE=fakeredis uv run -m compile_service.worker
+  PYTHONPATH="$(pwd)/src" COLLATEX_STATE=redis uv run -m compile_service.worker
 ) &
 WORKER_PID=$!
 npm --prefix apps/collab_gateway run dev &

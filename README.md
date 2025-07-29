@@ -68,6 +68,10 @@ uv pip install -e ./backend/compile-service[dev]
 ./scripts/dev_local.sh
 ```
 
+`dev_local.sh` automatically starts Redis on port 6379 if it's not running. If
+the `redis-server` binary is missing, it falls back to an in-process redislite
+instance.
+
 ## Native run
 
 ```bash
@@ -79,9 +83,9 @@ celery -A collatex.tasks worker -Q compile -l info
 # then npm run dev in frontend
 ```
 
-This installs Python and Node deps locally and starts the services with
-`COLLATEX_STATE=fakeredis`. Compilation produces a stub PDF unless Tectonic is
-installed.
+This installs Python and Node deps locally and starts the services. Redis will
+be started automatically unless you already have one running. Compilation
+produces a stub PDF unless Tectonic is installed.
 
 ## Architecture
 ```mermaid
