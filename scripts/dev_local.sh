@@ -14,6 +14,10 @@ if ! nc -z localhost 6379; then
   fi
 fi
 
+export REDIS_URL="redis://localhost:6379/0"
+export ALLOWED_ORIGINS="localhost:5173"
+export COLLATEX_ALLOWED_ORIGINS="http://localhost:5173"
+
 uv pip install -e ./backend/compile-service[dev]
 
 npm --prefix apps/collab_gateway install
