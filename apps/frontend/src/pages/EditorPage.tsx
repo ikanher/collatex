@@ -37,10 +37,10 @@ const EditorPage: React.FC = () => {
 
   return (
     <div className="flex h-full">
-      <div className="w-1/2 p-2">
+      <div className="w-1/2 p-2 h-full">
         <CodeMirror token={token} gatewayWS={gatewayWS} onReady={handleReady} />
       </div>
-      <div className="w-1/2 p-2 flex flex-col">
+      <div className="w-1/2 p-2 flex flex-col h-full">
         <button onClick={handleCompile} className="btn bg-blue-500 text-white px-2 py-1 mb-2">Compile</button>
         {status === 'running' && <Spinner />}
         <iframe src={pdfUrl} title="pdf" className="w-full h-[90%] border" />
