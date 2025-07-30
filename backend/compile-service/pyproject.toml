@@ -14,6 +14,7 @@ dependencies = [
   'structlog>=24.1.0',
   'prometheus_client>=0.20.0',
   'redis>=5.0.0',
+  "redislite>=6.2.912183",
 ]
 
 [project.optional-dependencies]
