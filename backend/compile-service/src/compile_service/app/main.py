@@ -33,13 +33,13 @@ from collatex.settings import TESTING, REDIS_URL
 
 
 def compile_tex_sync(tex_source: str, pdf_path: Path) -> None:
-    pdf_path.write_bytes(b"%PDF-1.4\n% dummy PDF for tests\n")
+    pdf_path.write_bytes(b'%PDF-1.4\n% dummy PDF for tests\n')
 
 FRONTEND_ORIGIN = os.getenv('FRONTEND_ORIGIN', 'http://localhost:5173')
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     url = REDIS_URL
     client = redis.from_url(url)  # type: ignore[no-untyped-call]
     store_init(client)

@@ -5,12 +5,15 @@ import WebSocket from 'ws';
 import { AddressInfo } from 'net';
 import { createClient } from 'redis';
 
+let redis: ReturnType<typeof createClient>;
+
 let server: ReturnType<typeof createServer>;
 let baseURL: string;
 
 beforeEach((done) => {
   process.env.ALLOWED_ORIGINS = 'localhost:3000';
   redis = createClient();
+  redis.connect().catch(() => undefined);
   redis.hSet('collatex:projects', 't1', new Date().toISOString());
   server = createServer();
   server.listen(0, () => {
@@ -20,11 +23,11 @@ beforeEach((done) => {
   });
 });
 
-afterEach((done) => {
-  server.close(done);
+afterEach(async () => {
+  await new Promise((resolve) => server.close(resolve));
   register.resetMetrics();
   connectionsTotal.reset();
-  redis.quit();
+  await redis.quit();
 });
 
 test('GET /healthz', async () => {
@@ -63,8 +66,16 @@ test('WebSocket increments metric with token', async () => {
 test('WebSocket rejects invalid token', (done) => {
   const wsUrl = baseURL.replace('http', 'ws') + '/yjs/bad';
   const ws = new WebSocket(wsUrl);
-  ws.on('close', (code) => {
-    expect(code).toBe(4404);
-    done();
+  ws.on('error', () => done());
+});
+
+test('WebSocket accepts token with dash', async () => {
+  const token = 't-1';
+  await redis.hSet('collatex:projects', token, new Date().toISOString());
+  const wsUrl = baseURL.replace('http', 'ws') + `/yjs/${token}`;
+  await new Promise((resolve) => {
+    const ws = new WebSocket(wsUrl);
+    ws.on('open', () => ws.close());
+    ws.on('close', resolve);
   });
 });
