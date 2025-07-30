@@ -59,7 +59,7 @@ export function createServer(): http.Server {
   const wss = new WebSocketServer({ noServer: true });
   server.on('upgrade', async (req, socket, head) => {
     const url = new URL(req.url || '/', 'http://localhost');
-    const match = url.pathname.match(/^\/yjs\/(\w+)/);
+    const match = url.pathname.match(/^\/yjs\/([\w-]+)/);
     const token = match ? match[1] : null;
     if (!token) {
       socket.destroy();

@@ -4,8 +4,8 @@ from pathlib import Path
 import os
 import pytest
 
-if os.getenv("COLLATEX_TESTING") == "1":
-    pytest.skip("project flow not needed in test mode", allow_module_level=True)
+if os.getenv('COLLATEX_TESTING') == '1':
+    pytest.skip('project flow not needed in test mode', allow_module_level=True)
 
 import fakeredis
 from httpx import AsyncClient, ASGITransport

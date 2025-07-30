@@ -4,7 +4,6 @@ import os
 import socket
 import urllib.parse
 
-import pytest
 
 
 def require_redis() -> None:
