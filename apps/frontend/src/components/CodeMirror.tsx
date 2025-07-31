@@ -6,6 +6,7 @@ import { latex } from 'codemirror-lang-latex';
 import { yCollab } from 'y-codemirror.next';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
+import { logDebug } from '../debug';
 
 interface Props {
   token: string;
@@ -25,6 +26,7 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
   useEffect(() => {
     const ydoc = new Y.Doc();
     const provider = new WebsocketProvider(`${gatewayWS}/${token}`, 'document', ydoc);
+    logDebug('CodeMirror provider', `${gatewayWS}/${token}`);
     const ytext = ydoc.getText('document');
     if (ytext.length === 0) {
       ytext.insert(0, '\\documentclass{article}\\begin{document}\\end{document}');
@@ -34,10 +36,12 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
       extensions: [fillParent, keymap.of(defaultKeymap), latex(), yCollab(ytext, provider.awareness)],
     });
     viewRef.current = new EditorView({ state, parent: ref.current! });
+    logDebug('CodeMirror ready');
     onReady?.(ytext);
     return () => {
       viewRef.current?.destroy();
       provider.destroy();
+      logDebug('CodeMirror destroyed');
     };
   }, [token, gatewayWS, onReady]);
 

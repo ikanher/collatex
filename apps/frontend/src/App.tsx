@@ -1,9 +1,11 @@
 import React from 'react';
 import { API_URL } from './config';
+import { logDebug } from './debug';
 
 async function newProject() {
   const res = await fetch(`${API_URL}/projects`, { method: 'POST' });
   const data = await res.json();
+  logDebug('new project', data.token);
   window.location.href = `/p/${data.token}`;
 }
 

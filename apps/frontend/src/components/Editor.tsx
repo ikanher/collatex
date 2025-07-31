@@ -5,6 +5,7 @@ import { defaultKeymap } from '@codemirror/commands';
 import { latex } from 'codemirror-lang-latex';
 import { yCollab } from 'y-codemirror.next';
 import { useCollabDoc } from '../hooks/useCollabDoc';
+import { logDebug } from '../debug';
 
 interface Props {
   room: string;
@@ -33,9 +34,11 @@ const Editor: React.FC<Props> = ({ room, token }) => {
         ]
       });
       viewRef.current = new EditorView({ state, parent: divRef.current });
+      logDebug('Editor init', room);
     }
     return () => {
       viewRef.current?.destroy();
+      logDebug('Editor destroy', room);
     };
   }, [ytext, awareness]);
 
