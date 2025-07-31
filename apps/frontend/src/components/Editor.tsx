@@ -11,6 +11,11 @@ interface Props {
   token: string;
 }
 
+const fillParent = EditorView.theme({
+  '&': { height: '100%' },
+  '.cm-scroller': { overflow: 'auto' },
+});
+
 const Editor: React.FC<Props> = ({ room, token }) => {
   const { ytext, awareness } = useCollabDoc(room, token);
   const divRef = useRef<HTMLDivElement>(null);
@@ -21,6 +26,7 @@ const Editor: React.FC<Props> = ({ room, token }) => {
       const state = EditorState.create({
         doc: ytext.toString(),
         extensions: [
+          fillParent,
           keymap.of(defaultKeymap),
           latex(),
           yCollab(ytext, awareness)
@@ -33,7 +39,7 @@ const Editor: React.FC<Props> = ({ room, token }) => {
     };
   }, [ytext, awareness]);
 
-  return <div className="h-full" ref={divRef} />;
+  return <div className="h-full min-h-0" ref={divRef} />;
 };
 
 export default Editor;
