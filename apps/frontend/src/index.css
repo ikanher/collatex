@@ -1,5 +1,4 @@
-/* Include CodeMirror base styles so the editor renders correctly */
-@import '@codemirror/view/style.css';
+/* CodeMirror includes its base theme dynamically, so no CSS import needed */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
