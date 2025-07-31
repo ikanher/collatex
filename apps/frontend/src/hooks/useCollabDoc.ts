@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
+import { logDebug } from '../debug';
 
 
 const docs = new Map<string, { ydoc: Y.Doc; provider: WebsocketProvider }>();
@@ -14,6 +15,7 @@ export function useCollabDoc(room: string, token: string) {
         room,
         ydoc
       );
+      logDebug('new WebsocketProvider', room, token);
       docs.set(room, { ydoc, provider });
     }
     return docs.get(room)!;
@@ -24,10 +26,13 @@ export function useCollabDoc(room: string, token: string) {
 
   useEffect(() => {
     return () => {
+      logDebug('disconnect provider', room);
       // keep doc for other hooks; just disconnect provider
       provider.disconnect();
     };
   }, [provider]);
 
-  return { ydoc, ytext, awareness } as const;
+  const result = { ydoc, ytext, awareness } as const;
+  logDebug('useCollabDoc', room, { len: ytext.length });
+  return result;
 }

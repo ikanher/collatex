@@ -3,6 +3,7 @@ import * as Y from 'yjs';
 import CodeMirror from '../components/CodeMirror';
 import { useProject } from '../hooks/useProject';
 import Spinner from '../components/Spinner';
+import { logDebug } from '../debug';
 
 const EditorPage: React.FC = () => {
   const { token, api, gatewayWS } = useProject();
@@ -11,11 +12,13 @@ const EditorPage: React.FC = () => {
   const [status, setStatus] = useState<'idle' | 'running'>('idle');
 
   const handleReady = useCallback((text: Y.Text) => {
+    logDebug('editor ready');
     setYtext(text);
   }, []);
 
   const handleCompile = async () => {
     if (!ytext) return;
+    logDebug('compile start');
     setStatus('running');
     const form = new FormData();
     form.append('tex', ytext.toString());
@@ -24,6 +27,7 @@ const EditorPage: React.FC = () => {
       body: form,
     });
     const { job_id } = await res.json();
+    logDebug('job_id', job_id);
     const es = new EventSource(`${api}/stream/jobs/${job_id}?project=${token}`);
     es.onmessage = (e) => {
       const { status: s } = JSON.parse(e.data) as { status: string };
@@ -31,6 +35,7 @@ const EditorPage: React.FC = () => {
         setPdfUrl(`${api}/pdf/${job_id}?project=${token}`);
         setStatus('idle');
         es.close();
+        logDebug('compile done');
       }
     };
   };
