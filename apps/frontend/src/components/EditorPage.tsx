@@ -18,11 +18,11 @@ const EditorPage: React.FC<Props> = ({ token }) => {
   const [logOpen, setLogOpen] = useState(false);
 
   return (
-    <div className="flex h-full relative">
-      <div className="w-1/2 h-full">
+    <div className="flex min-h-0 h-full relative">
+      <div className="w-1/2 h-full min-h-0">
         <Editor room={ROOM} token={token} />
       </div>
-      <div className="w-1/2 h-full">
+      <div className="w-1/2 h-full min-h-0">
         <PdfViewer blobUrl={pdfBlobUrl} />
       </div>
       <CompileButton

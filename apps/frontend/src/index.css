@@ -1,4 +1,7 @@
 /* CodeMirror includes its base theme dynamically, so no CSS import needed */
+html, body, #root {
+  height: 100%;
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
