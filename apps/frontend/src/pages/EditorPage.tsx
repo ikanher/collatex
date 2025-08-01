@@ -41,14 +41,26 @@ const EditorPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-0 h-full">
-      <div className="w-1/2 p-2 h-full min-h-0">
-        <CodeMirror token={token} gatewayWS={gatewayWS} onReady={handleReady} />
+    <div className="flex h-full min-h-0">
+      {/* Left pane: toolbar + editor */}
+      <div className="w-1/2 h-full min-h-0 flex flex-col border-r">
+        <div className="p-2 border-b flex items-center gap-2">
+          <button
+            onClick={handleCompile}
+            className="bg-blue-500 text-white px-2 py-1"
+            disabled={status === 'running'}
+          >
+            Compile
+          </button>
+          {status === 'running' && <Spinner />}
+        </div>
+        <div className="flex-1 min-h-0 p-2">
+          <CodeMirror token={token} gatewayWS={gatewayWS} onReady={handleReady} />
+        </div>
       </div>
-      <div className="w-1/2 p-2 flex flex-col h-full min-h-0">
-        <button onClick={handleCompile} className="btn bg-blue-500 text-white px-2 py-1 mb-2">Compile</button>
-        {status === 'running' && <Spinner />}
-        <iframe src={pdfUrl} title="pdf" className="w-full h-[90%] border" />
+      {/* Right pane: PDF */}
+      <div className="w-1/2 h-full min-h-0 p-2">
+        <iframe src={pdfUrl} title="pdf" className="w-full h-full border" />
       </div>
     </div>
   );

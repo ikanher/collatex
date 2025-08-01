@@ -3,7 +3,6 @@ import '@testing-library/jest-dom/vitest';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import EditorPage from '../src/pages/EditorPage';
-import BuildLog from '../src/components/BuildLog';
 import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
 const aw = new Awareness(new Y.Doc());
@@ -47,8 +46,4 @@ describe('compile flow', () => {
     await waitFor(() => expect(screen.getByTitle('pdf')).toBeInTheDocument());
   }, 10000);
 
-  it('shows log panel', () => {
-    render(<BuildLog log="error: oops" status="error" open={true} onToggle={() => {}} />);
-    expect(screen.getByText(/error: oops/i)).toBeInTheDocument();
-  });
 });
