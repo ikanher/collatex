@@ -20,19 +20,18 @@ const EditorPage: React.FC = () => {
     if (!ytext) return;
     logDebug('compile start');
     setStatus('running');
-    const form = new FormData();
-    form.append('tex', ytext.toString());
     const res = await fetch(`${api}/compile?project=${token}`, {
       method: 'POST',
-      body: form,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tex: ytext.toString() }),
     });
-    const { job_id } = await res.json();
-    logDebug('job_id', job_id);
-    const es = new EventSource(`${api}/stream/jobs/${job_id}?project=${token}`);
+    const { jobId } = await res.json();
+    logDebug('job_id', jobId);
+    const es = new EventSource(`${api}/stream/jobs/${jobId}?project=${token}`);
     es.onmessage = (e) => {
       const { status: s } = JSON.parse(e.data) as { status: string };
       if (s === 'SUCCEEDED') {
-        setPdfUrl(`${api}/pdf/${job_id}?project=${token}`);
+        setPdfUrl(`${api}/pdf/${jobId}?project=${token}`);
         setStatus('idle');
         es.close();
         logDebug('compile done');

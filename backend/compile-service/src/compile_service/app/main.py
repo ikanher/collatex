@@ -97,7 +97,7 @@ async def create_project_endpoint() -> JSONResponse:
 @app.post('/compile', status_code=202)
 async def compile_endpoint(
     req: CompileRequest, project: Project = Depends(require_project)
-) -> Response:
+) -> JSONResponse:
     job_id = str(uuid.uuid4())
     job = Job(id=job_id, project_token=project.token, created_at=datetime.utcnow())
     await run_in_threadpool(save_job, job)
@@ -112,7 +112,11 @@ async def compile_endpoint(
         await run_in_threadpool(publish_status, job)
     else:
         compile_task.delay(job_id, req.tex)
-    return Response(status_code=202, headers={'Location': f'/jobs/{job_id}?project={project.token}'})
+    return JSONResponse(
+        {'jobId': job_id},
+        status_code=202,
+        headers={'Location': f'/jobs/{job_id}?project={project.token}'},
+    )
 
 
 @app.get('/jobs/{job_id}')

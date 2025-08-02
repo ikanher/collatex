@@ -14,7 +14,7 @@ process.env.VITE_API_TOKEN = 'tkn';
 describe('compile flow', () => {
   beforeEach(() => {
     vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:url') });
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ json: () => ({ job_id: 'abc' }) } as any)));
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ json: () => ({ jobId: 'abc' }) } as any)));
     class ES {
       onmessage: ((ev: MessageEvent) => void) | null = null;
       close = vi.fn();
