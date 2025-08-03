@@ -3,12 +3,13 @@ import * as Y from 'yjs';
 import CodeMirror from '../components/CodeMirror';
 import { useProject } from '../hooks/useProject';
 import Spinner from '../components/Spinner';
+import PdfViewer from '../components/PdfViewer';
 import { logDebug } from '../debug';
 
 const EditorPage: React.FC = () => {
   const { token, api, gatewayWS } = useProject();
   const [ytext, setYtext] = useState<Y.Text | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string>('');
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'running'>('idle');
 
   const handleReady = useCallback((text: Y.Text) => {
@@ -104,7 +105,7 @@ const EditorPage: React.FC = () => {
       </div>
       {/* Right pane: PDF */}
       <div className="w-1/2 h-full min-h-0 p-2">
-        <iframe src={pdfUrl} title="pdf" className="w-full h-full border" />
+        <PdfViewer blobUrl={pdfUrl} />
       </div>
     </div>
   );
