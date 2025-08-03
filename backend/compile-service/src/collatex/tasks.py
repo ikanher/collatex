@@ -11,6 +11,10 @@ from celery.app.task import Task  # type: ignore
 
 from time import perf_counter
 
+from structlog import get_logger
+
+from compile_service.logging import job_id_var
+
 from .models import JobStatus
 from .redis_store import get_job, save_job, publish_status
 from .metrics import COMPILE_COUNTER, COMPILE_DURATION
@@ -18,11 +22,17 @@ from .metrics import COMPILE_COUNTER, COMPILE_DURATION
 celery_app = Celery('collatex', broker=os.getenv('REDIS_URL', 'redis://localhost:6379/0'))
 celery_app.conf.task_default_queue = 'compile'
 
+logger = get_logger(__name__)
+
 
 @celery_app.task(bind=True)  # type: ignore[misc]
 def compile_task(self: Task, job_id: str, tex_source: str) -> None:
+    token = job_id_var.set(job_id)
+    logger.debug('task_start')
     job = get_job(job_id)
     if job is None:
+        logger.debug('task_missing_job')
+        job_id_var.reset(token)
         return
     job.status = JobStatus.RUNNING
     save_job(job)
@@ -36,6 +46,7 @@ def compile_task(self: Task, job_id: str, tex_source: str) -> None:
     tectonic = shutil.which('tectonic')
     log = ''
     if tectonic:
+        logger.debug('tectonic_found', path=tectonic)
         with tempfile.TemporaryDirectory() as tmp:
             tex_file = Path(tmp) / 'main.tex'
             tex_file.write_text(tex_source)
@@ -46,12 +57,14 @@ def compile_task(self: Task, job_id: str, tex_source: str) -> None:
                 text=True,
             )
             log = proc.stdout + proc.stderr
+            logger.debug('tectonic_finished', returncode=proc.returncode)
             if proc.returncode == 0 and (Path(tmp) / 'out.pdf').exists():
                 shutil.move(str(Path(tmp) / 'out.pdf'), pdf_path)
                 job.status = JobStatus.SUCCEEDED
             else:
                 job.status = JobStatus.FAILED
     else:
+        logger.debug('tectonic_missing')
         placeholder = Path(__file__).resolve().parents[2] / 'static' / 'placeholder.pdf'
         shutil.copy(placeholder, pdf_path)
         job.status = JobStatus.SUCCEEDED
@@ -65,3 +78,5 @@ def compile_task(self: Task, job_id: str, tex_source: str) -> None:
     COMPILE_COUNTER.labels(status=status_label, project_token=job.project_token).inc()
     COMPILE_DURATION.labels(project_token=job.project_token).observe(duration)
     publish_status(job)
+    logger.debug('task_end', status=job.status.value, duration_ms=int(duration * 1000))
+    job_id_var.reset(token)

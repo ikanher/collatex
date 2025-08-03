@@ -18,6 +18,10 @@ from fastapi.responses import FileResponse, JSONResponse, Response, StreamingRes
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
+from structlog import get_logger
+
+from ..logging import configure_logging, job_id_var
+
 from collatex.models import Job, JobStatus, Project
 from collatex.redis_store import (
     init as store_init,
@@ -30,6 +34,10 @@ from collatex.redis_store import (
 )
 from collatex.tasks import compile_task
 from collatex.settings import TESTING, REDIS_URL
+
+
+configure_logging()
+logger = get_logger(__name__)
 
 
 def compile_tex_sync(tex_source: str, pdf_path: Path) -> None:
@@ -103,19 +111,24 @@ async def compile_endpoint(
     req: CompileRequest, project: Project = Depends(require_project)
 ) -> JSONResponse:
     job_id = str(uuid.uuid4())
+    ctx = job_id_var.set(job_id)
+    logger.debug('compile_request', project=project.token)
     job = Job(id=job_id, project_token=project.token, created_at=datetime.utcnow())
     await run_in_threadpool(save_job, job)
     storage = Path('storage')
     storage.mkdir(exist_ok=True)
     pdf_path = storage / f'{job_id}.pdf'
     if TESTING:
+        logger.debug('compile_testing_mode')
         compile_tex_sync(req.tex, pdf_path)
         job.status = JobStatus.SUCCEEDED
         job.pdf_path = str(pdf_path)
         await run_in_threadpool(save_job, job)
         await run_in_threadpool(publish_status, job)
     else:
+        logger.debug('compile_enqueued')
         compile_task.delay(job_id, req.tex)
+    job_id_var.reset(ctx)
     return JSONResponse(
         {'jobId': job_id},
         status_code=202,
@@ -125,10 +138,16 @@ async def compile_endpoint(
 
 @app.get('/jobs/{job_id}')
 async def job_status(job_id: str, project: Project = Depends(require_project)) -> JSONResponse:
+    ctx = job_id_var.set(job_id)
+    logger.debug('job_status_request')
     job = await run_in_threadpool(get_job, job_id)
     if not job:
+        logger.debug('job_status_not_found')
+        job_id_var.reset(ctx)
         raise HTTPException(status_code=404, detail='job not found')
     if job.project_token != project.token:
+        logger.debug('job_status_project_mismatch')
+        job_id_var.reset(ctx)
         raise HTTPException(status_code=404, detail='job not found')
     body = {
         'jobId': job.id,
@@ -137,13 +156,19 @@ async def job_status(job_id: str, project: Project = Depends(require_project)) -
     }
     if job.status == JobStatus.SUCCEEDED and job.pdf_path:
         body['pdfUrl'] = f'/pdf/{job.id}?project={project.token}'
+    logger.debug('job_status_response', status=job.status.value)
+    job_id_var.reset(ctx)
     return JSONResponse(content=body)
 
 
 @app.get('/stream/jobs/{job_id}')
 async def stream_job(job_id: str, project: Project = Depends(require_project)) -> Response:
+    ctx = job_id_var.set(job_id)
+    logger.debug('stream_job_request')
     job = await run_in_threadpool(get_job, job_id)
     if not job or job.project_token != project.token:
+        logger.debug('stream_job_not_found')
+        job_id_var.reset(ctx)
         raise HTTPException(status_code=404, detail='job not found')
     redis_async = app.state.redis_async
     pubsub = redis_async.pubsub()
@@ -159,21 +184,32 @@ async def stream_job(job_id: str, project: Project = Depends(require_project)) -
                 data = json.loads(msg['data'])
                 if data.get('id') != job_id:
                     continue
+                logger.debug('stream_job_event', status=data.get('status'))
                 yield f'data: {json.dumps(data)}\n\n'
                 if data.get('status') in {'SUCCEEDED', 'FAILED'}:
                     break
         finally:
             await pubsub.unsubscribe(STATUS_CHANNEL)
             await pubsub.close()
+            logger.debug('stream_job_close')
+            job_id_var.reset(ctx)
 
     return StreamingResponse(event_gen(), media_type='text/event-stream')
 
 
 @app.get('/pdf/{job_id}')
 async def get_pdf(job_id: str, project: Project = Depends(require_project)) -> FileResponse:
+    ctx = job_id_var.set(job_id)
+    logger.debug('pdf_request')
     job = await run_in_threadpool(get_job, job_id)
     if not job or job.project_token != project.token:
+        logger.debug('pdf_not_found')
+        job_id_var.reset(ctx)
         raise HTTPException(status_code=404, detail='pdf not found')
     if job.status != JobStatus.SUCCEEDED or not job.pdf_path:
+        logger.debug('pdf_not_ready', status=job.status.value)
+        job_id_var.reset(ctx)
         raise HTTPException(status_code=404, detail='pdf not found')
+    logger.debug('pdf_response', path=job.pdf_path)
+    job_id_var.reset(ctx)
     return FileResponse(job.pdf_path, media_type='application/pdf')
