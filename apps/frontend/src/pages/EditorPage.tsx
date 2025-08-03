@@ -27,6 +27,16 @@ const EditorPage: React.FC = () => {
     });
     const { jobId } = await res.json();
     logDebug('job_id', jobId);
+
+    const statusRes = await fetch(`${api}/jobs/${jobId}?project=${token}`);
+    const jobData = (await statusRes.json()) as { status: string };
+    if (jobData.status === 'SUCCEEDED') {
+      setPdfUrl(`${api}/pdf/${jobId}?project=${token}`);
+      setStatus('idle');
+      logDebug('compile done');
+      return;
+    }
+
     const es = new EventSource(`${api}/stream/jobs/${jobId}?project=${token}`);
     es.onmessage = (e) => {
       const { status: s } = JSON.parse(e.data) as { status: string };
