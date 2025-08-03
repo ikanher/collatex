@@ -12,7 +12,7 @@ import redis
 import redis.asyncio as aioredis
 from typing import AsyncGenerator
 from prometheus_client import make_asgi_app
-from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi import FastAPI, HTTPException, Depends, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
@@ -70,7 +70,11 @@ class CompileRequest(BaseModel):
     tex: str
 
 
-def require_project(project: str = Query(...)) -> Project:
+def require_project(request: Request, project: str | None = Query(None)) -> Project:
+    if request.method == 'OPTIONS':
+        return Project(token='', created_at=datetime.utcnow())
+    if project is None:
+        raise HTTPException(status_code=404, detail='project not found')
     proj = get_project(project)
     if proj is None:
         raise HTTPException(status_code=404, detail='project not found')
