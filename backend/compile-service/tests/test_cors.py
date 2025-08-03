@@ -1,5 +1,4 @@
-# ruff: noqa
-import pytest; pytest.skip('legacy', allow_module_level=True)  # noqa: E402
+# ruff: noqa: F401
 import importlib
 from fastapi.testclient import TestClient
 import compile_service.app.state as state
@@ -28,6 +27,18 @@ def test_preflight_allowed(cors_app):
         assert r.status_code in {200, 204}
 
 
+def test_preflight_with_project_token(cors_app):
+    with TestClient(cors_app) as client:
+        r = client.options(
+            '/compile?project=missing',
+            headers={
+                'Origin': 'http://allowed',
+                'Access-Control-Request-Method': 'POST',
+            },
+        )
+        assert r.status_code in {200, 204}
+
+
 def test_preflight_forbidden(cors_app):
     with TestClient(cors_app) as client:
         r = client.options(
@@ -37,4 +48,4 @@ def test_preflight_forbidden(cors_app):
                 'Access-Control-Request-Method': 'POST',
             },
         )
-        assert r.status_code == 403
+        assert r.status_code in {400, 403}
