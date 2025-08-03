@@ -14,7 +14,14 @@ process.env.VITE_API_TOKEN = 'tkn';
 describe('compile flow', () => {
   beforeEach(() => {
     vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:url') });
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ json: () => ({ jobId: 'abc' }) } as any)));
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce({ json: () => ({ jobId: 'abc' }) } as any)
+        .mockResolvedValueOnce({ json: () => ({ status: 'RUNNING' }) } as any)
+        .mockResolvedValueOnce({ blob: () => new Blob() } as any),
+    );
     class ES {
       onmessage: ((ev: MessageEvent) => void) | null = null;
       close = vi.fn();
@@ -40,10 +47,13 @@ describe('compile flow', () => {
         </Routes>
       </MemoryRouter>
     );
-    const btn = screen.getAllByRole('button', { name: /compile/i })[0];
+    const btn = screen.getByRole('button', { name: /compile/i });
     fireEvent.click(btn);
     await vi.runAllTimersAsync();
-    await waitFor(() => expect(screen.getByTitle('pdf')).toBeInTheDocument());
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(btn).not.toBeDisabled());
+    const iframe = screen.getByTitle('pdf') as HTMLIFrameElement;
+    await waitFor(() => expect(iframe.src).toBe('blob:url'));
   }, 10000);
 
 });

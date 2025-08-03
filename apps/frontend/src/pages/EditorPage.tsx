@@ -20,33 +20,53 @@ const EditorPage: React.FC = () => {
     if (!ytext) return;
     logDebug('compile start');
     setStatus('running');
-    const res = await fetch(`${api}/compile?project=${token}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tex: ytext.toString() }),
-    });
-    const { jobId } = await res.json();
-    logDebug('job_id', jobId);
+    try {
+      const res = await fetch(`${api}/compile?project=${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tex: ytext.toString() }),
+      });
+      const { jobId } = await res.json();
+      logDebug('job_id', jobId);
 
-    const statusRes = await fetch(`${api}/jobs/${jobId}?project=${token}`);
-    const jobData = (await statusRes.json()) as { status: string };
-    if (jobData.status === 'SUCCEEDED') {
-      setPdfUrl(`${api}/pdf/${jobId}?project=${token}`);
-      setStatus('idle');
-      logDebug('compile done');
-      return;
-    }
-
-    const es = new EventSource(`${api}/stream/jobs/${jobId}?project=${token}`);
-    es.onmessage = (e) => {
-      const { status: s } = JSON.parse(e.data) as { status: string };
-      if (s === 'SUCCEEDED') {
-        setPdfUrl(`${api}/pdf/${jobId}?project=${token}`);
+      const finish = async () => {
+        const pdfRes = await fetch(`${api}/pdf/${jobId}?project=${token}`);
+        const blob = await pdfRes.blob();
+        setPdfUrl(URL.createObjectURL(blob));
         setStatus('idle');
-        es.close();
         logDebug('compile done');
+      };
+
+      const statusRes = await fetch(`${api}/jobs/${jobId}?project=${token}`);
+      const jobData = (await statusRes.json()) as { status: string };
+      if (jobData.status === 'SUCCEEDED') {
+        await finish();
+        return;
       }
-    };
+      if (jobData.status === 'FAILED') {
+        setStatus('idle');
+        return;
+      }
+
+      const es = new EventSource(`${api}/stream/jobs/${jobId}?project=${token}`);
+      es.onmessage = async (e) => {
+        const { status: s } = JSON.parse(e.data) as { status: string };
+        if (s === 'SUCCEEDED') {
+          es.close();
+          await finish();
+        } else if (s === 'FAILED') {
+          es.close();
+          setStatus('idle');
+        }
+      };
+      es.onerror = () => {
+        es.close();
+        setStatus('idle');
+      };
+    } catch (err) {
+      logDebug('compile error', err);
+      setStatus('idle');
+    }
   };
 
   return (
