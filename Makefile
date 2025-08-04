@@ -6,9 +6,9 @@ up:
 down:
 	docker compose down
 
-# Run both backend and Yjs websocket together
+# Run backend, worker, and Yjs websocket together
 dev:
-	@$(MAKE) -j 2 dev-backend dev-collab
+	@$(MAKE) -j 3 dev-backend dev-worker dev-collab
 
 # Backend only
 dev-backend:
