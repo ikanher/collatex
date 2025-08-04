@@ -26,7 +26,7 @@ dev-redis:
 	docker run --rm -p 6379:6379 redis:7-alpine
 
 dev-worker:
-	cd backend/compile-service && uv run compile_service.worker:main
+	cd backend/compile-service && uv run celery -A collatex.tasks worker -Q compile -l info
 
 # Always use dev group tools (pytest-xdist, ruff, mypy)
 test:
