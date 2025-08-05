@@ -49,3 +49,23 @@ def test_preflight_forbidden(cors_app):
             },
         )
         assert r.status_code in {400, 403}
+
+
+def test_preflight_localhost_regex(monkeypatch):
+    monkeypatch.setenv('COLLATEX_STATE', 'memory')
+    monkeypatch.delenv('COLLATEX_ALLOWED_ORIGINS', raising=False)
+    importlib.reload(state)
+    import compile_service.app.main as main
+    importlib.reload(main)
+    with TestClient(main.app) as client:
+        r = client.options(
+            '/projects',
+            headers={
+                'Origin': 'http://127.0.0.1:3000',
+                'Access-Control-Request-Method': 'POST',
+            },
+        )
+        assert r.status_code in {200, 204}
+        assert (
+            r.headers['access-control-allow-origin'] == 'http://127.0.0.1:3000'
+        )
