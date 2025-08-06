@@ -172,18 +172,21 @@ async def job_status(job_id: str, project: Project = Depends(require_project)) -
 
 @app.get('/stream/jobs/{job_id}')
 async def stream_job(job_id: str, project: Project = Depends(require_project)) -> Response:
-    ctx = job_id_var.set(job_id)
+    ctx_outer = job_id_var.set(job_id)
     logger.debug('stream_job_request')
     job = await run_in_threadpool(get_job, job_id)
     if not job or job.project_token != project.token:
         logger.debug('stream_job_not_found')
-        job_id_var.reset(ctx)
+        job_id_var.reset(ctx_outer)
         raise HTTPException(status_code=404, detail='job not found')
+    job_id_var.reset(ctx_outer)
+
     redis_async = app.state.redis_async
     pubsub = redis_async.pubsub()
     await pubsub.subscribe(STATUS_CHANNEL)
 
     async def event_gen() -> AsyncGenerator[str, None]:
+        ctx = job_id_var.set(job_id)
         try:
             while True:
                 msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.1)
