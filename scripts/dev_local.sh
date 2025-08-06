@@ -35,7 +35,7 @@ trap cleanup EXIT INT TERM
 APP_PID=$!
 (
   cd backend/compile-service && \
-  PYTHONPATH="$(pwd)/src" COLLATEX_STATE=redis uv run celery -A collatex.tasks worker -Q compile -l info
+  PYTHONPATH="$(pwd)/src" COLLATEX_STATE=redis uv run celery -A collatex.tasks worker -Q compile -l INFO
 ) &
 WORKER_PID=$!
 npm --prefix apps/collab_gateway run dev &
