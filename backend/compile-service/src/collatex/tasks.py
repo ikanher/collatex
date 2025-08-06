@@ -51,15 +51,15 @@ def compile_task(self: Task, job_id: str, tex_source: str) -> None:
             tex_file = Path(tmp) / 'main.tex'
             tex_file.write_text(tex_source)
             proc = subprocess.run(
-                [tectonic, 'main.tex', '-o', 'out.pdf', '--synctex=0'],
+                [tectonic, '--outdir', '.', '--synctex=0', 'main.tex'],
                 cwd=tmp,
                 capture_output=True,
                 text=True,
             )
             log = proc.stdout + proc.stderr
             logger.debug('tectonic_finished', returncode=proc.returncode)
-            if proc.returncode == 0 and (Path(tmp) / 'out.pdf').exists():
-                shutil.move(str(Path(tmp) / 'out.pdf'), pdf_path)
+            if proc.returncode == 0 and (Path(tmp) / 'main.pdf').exists():
+                shutil.move(str(Path(tmp) / 'main.pdf'), pdf_path)
                 job.status = JobStatus.SUCCEEDED
             else:
                 job.status = JobStatus.FAILED
