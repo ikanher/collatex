@@ -29,6 +29,7 @@ logger = get_logger(__name__)
 def compile_task(self: Task, job_id: str, tex_source: str) -> None:
     token = job_id_var.set(job_id)
     logger.debug('task_start')
+    logger.debug('tex_source', tex=tex_source)
     job = get_job(job_id)
     if job is None:
         logger.debug('task_missing_job')
@@ -50,12 +51,17 @@ def compile_task(self: Task, job_id: str, tex_source: str) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tex_file = Path(tmp) / 'main.tex'
             tex_file.write_text(tex_source)
+            logger.debug('tex_written', path=str(tex_file), bytes=len(tex_source))
+            cmd = [tectonic, '--outdir', '.', '--synctex=0', 'main.tex']
+            logger.debug('tectonic_run', cmd=cmd, cwd=str(tmp))
             proc = subprocess.run(
-                [tectonic, '--outdir', '.', '--synctex=0', 'main.tex'],
+                cmd,
                 cwd=tmp,
                 capture_output=True,
                 text=True,
             )
+            logger.debug('tectonic_stdout', stdout=proc.stdout)
+            logger.debug('tectonic_stderr', stderr=proc.stderr)
             log = proc.stdout + proc.stderr
             logger.debug('tectonic_finished', returncode=proc.returncode)
             if proc.returncode == 0 and (Path(tmp) / 'main.pdf').exists():
@@ -69,6 +75,7 @@ def compile_task(self: Task, job_id: str, tex_source: str) -> None:
         shutil.copy(placeholder, pdf_path)
         job.status = JobStatus.SUCCEEDED
         log = 'placeholder used'
+        logger.debug('placeholder_used', path=str(placeholder))
 
     job.pdf_path = str(pdf_path)
     job.log = log[-4000:] if log else None
