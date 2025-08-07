@@ -118,3 +118,11 @@ Clients may follow compile progress via Server-Sent Events. After posting to
 `{"id":"<id>","status":"RUNNING|SUCCEEDED|FAILED"}`. A heartbeat comment is sent
 every 100&nbsp;ms to keep proxies happy. Prometheus metrics are exposed at
 `/metrics` for monitoring compile counts and durations.
+
+## Live Math Preview
+The editor renders LaTeX directly in the browser via MathJax. Set `VITE_USE_SERVER_COMPILE=true` to restore the legacy server compile flow.
+
+## Security TODO
+- Replace the temporary `better-xss` sanitiser with an AST-based policy.
+- Harden the Content Security Policy.
+- Bring back PDF export once Tectonic-WASM lands.
