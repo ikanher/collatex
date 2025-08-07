@@ -8,4 +8,9 @@ export default defineConfig({
   define: {
     'process.env.VITE_API_ORIGIN': JSON.stringify(apiOrigin),
   },
+  server: {
+    headers: {
+      'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline'",
+    },
+  },
 });
