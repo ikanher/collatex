@@ -16,6 +16,7 @@ export default defineConfig({
       'Content-Security-Policy':
         "default-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
         "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data:; " +
         `connect-src 'self' ${apiOrigin} ${wsOrigin}`,
     },
   },
