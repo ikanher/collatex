@@ -8,22 +8,22 @@ interface Props {
 
 const MathJaxPreview: React.FC<Props> = ({ source }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mjRef = useRef<any>();
-  const timeoutRef = useRef<number>();
+  const mjRef = useRef<unknown>(null);
+  const rafRef = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
 
   // Lazy-load MathJax core on first mount to avoid bloating the bundle.
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      const [{ mathjax }, { TeX }, { SVG }, { liteAdaptor }, { RegisterHTMLHandler }] = await Promise.all([
+      const [{ mathjax }, { TeX }, { SVG }, { browserAdaptor }, { RegisterHTMLHandler }] = await Promise.all([
         import('mathjax-full/js/mathjax.js'),
         import('mathjax-full/js/input/tex.js'),
         import('mathjax-full/js/output/svg.js'),
-        import('mathjax-full/js/adaptors/liteAdaptor.js'),
+        import('mathjax-full/js/adaptors/browserAdaptor.js'),
         import('mathjax-full/js/handlers/html.js'),
       ]);
-      const adaptor = liteAdaptor();
+      const adaptor = browserAdaptor();
       RegisterHTMLHandler(adaptor);
       const tex = new TeX({ packages: ['base', 'ams'] });
       const svg = new SVG({ fontCache: 'none' });
@@ -39,25 +39,35 @@ const MathJaxPreview: React.FC<Props> = ({ source }) => {
     };
   }, []);
 
+  function scheduleRender() {
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      const { doc } = mjRef.current as {
+        doc: { convert: (s: string, o?: unknown) => unknown };
+      };
+      const container = containerRef.current!;
+      const clean = sanitize(source);
+      container.innerHTML = '';
+      if (!clean.trim()) {
+        container.textContent = 'Start typing…';
+      } else {
+        const node = doc.convert(clean, { display: false });
+        container.appendChild(node as unknown as Node);
+      }
+      rafRef.current = null;
+    });
+  }
+
   useEffect(() => {
     if (!mjRef.current || !ready) {
       return;
     }
-    const clean = sanitize(source);
-    clearTimeout(timeoutRef.current);
-    timeoutRef.current = window.setTimeout(() => {
-      const { doc } = mjRef.current!;
-      const container = containerRef.current!;
-      container.innerHTML = '';
-      if (!clean.trim()) {
-        container.textContent = 'Start typing…';
-        return;
-      }
-      const node = doc.convert(clean, { display: false });
-      container.appendChild(node as unknown as Node);
-    }, 100);
+    scheduleRender();
     return () => {
-      clearTimeout(timeoutRef.current);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
   }, [source, ready]);
 
