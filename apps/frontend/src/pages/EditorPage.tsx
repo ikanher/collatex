@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import CodeMirror from '../components/CodeMirror';
 import { useProject } from '../hooks/useProject';
@@ -9,10 +9,34 @@ import { logDebug } from '../debug';
 const EditorPage: React.FC = () => {
   const { token, gatewayWS } = useProject();
   const [texStr, setTexStr] = useState<string>('');
+  const rafRef = useRef<number | null>(null);
+  const unsubRef = useRef<() => void>();
 
-  const handleReady = useCallback((text: Y.Text) => {
-    logDebug('editor ready');
-    text.observeDeep(() => setTexStr(text.toString()));
+  const scheduleRender = useCallback((text: Y.Text) => {
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      setTexStr(text.toString());
+      rafRef.current = null;
+    });
+  }, []);
+
+  const handleReady = useCallback(
+    (text: Y.Text) => {
+      logDebug('editor ready');
+      const observer = () => scheduleRender(text);
+      text.observeDeep(observer);
+      unsubRef.current = () => text.unobserveDeep(observer);
+    },
+    [scheduleRender],
+  );
+
+  useEffect(() => {
+    return () => {
+      unsubRef.current?.();
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
   }, []);
 
   return (

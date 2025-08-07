@@ -15,7 +15,7 @@ vi.mock('mathjax-full/js/mathjax.js', () => ({
 }));
 vi.mock('mathjax-full/js/input/tex.js', () => ({ TeX: class {} }));
 vi.mock('mathjax-full/js/output/svg.js', () => ({ SVG: class {} }));
-vi.mock('mathjax-full/js/adaptors/liteAdaptor.js', () => ({ liteAdaptor: () => ({}) }));
+vi.mock('mathjax-full/js/adaptors/browserAdaptor.js', () => ({ browserAdaptor: () => ({}) }));
 vi.mock('mathjax-full/js/handlers/html.js', () => ({ RegisterHTMLHandler: () => {} }));
 
 import MathJaxPreview from '../src/components/MathJaxPreview';
@@ -43,5 +43,13 @@ describe('MathJaxPreview', () => {
     rerender(<MathJaxPreview source={"$$1+1=2$$"} />);
     await vi.runAllTimersAsync();
     await waitFor(() => expect(container.innerHTML).not.toEqual(first));
+  });
+
+  it('renders placeholder when empty', async () => {
+    const { container } = render(<MathJaxPreview source="" />);
+    await vi.runAllTimersAsync();
+    await waitFor(() =>
+      expect(container.textContent).toContain('Start typing…'),
+    );
   });
 });
