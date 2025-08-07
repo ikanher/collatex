@@ -26,6 +26,9 @@ const EditorPage: React.FC = () => {
       const observer = () => scheduleRender(text);
       text.observeDeep(observer);
       unsubRef.current = () => text.unobserveDeep(observer);
+
+      setTexStr(text.toString());
+      scheduleRender(text);
     },
     [scheduleRender],
   );
