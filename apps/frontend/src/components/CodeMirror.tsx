@@ -25,22 +25,30 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
 
   useEffect(() => {
     const ydoc = new Y.Doc();
-    const provider = new WebsocketProvider(`${gatewayWS}/${token}`, 'document', ydoc);
-    logDebug('CodeMirror provider', `${gatewayWS}/${token}`);
+    let provider: WebsocketProvider | undefined;
+    try {
+      provider = new WebsocketProvider(`${gatewayWS}/${token}`, 'document', ydoc);
+      logDebug('CodeMirror provider', `${gatewayWS}/${token}`);
+    } catch (err) {
+      if (window.location.hostname !== 'localhost') {
+        throw err;
+      }
+      logDebug('CodeMirror provider failed to connect');
+    }
     const ytext = ydoc.getText('document');
     if (ytext.length === 0) {
       ytext.insert(0, '\\documentclass{article}\\begin{document}\\end{document}');
     }
     const state = EditorState.create({
       doc: ytext.toString(),
-      extensions: [fillParent, keymap.of(defaultKeymap), latex(), yCollab(ytext, provider.awareness)],
+      extensions: [fillParent, keymap.of(defaultKeymap), latex(), yCollab(ytext, provider?.awareness)],
     });
     viewRef.current = new EditorView({ state, parent: ref.current! });
     logDebug('CodeMirror ready');
     onReady?.(ytext);
     return () => {
       viewRef.current?.destroy();
-      provider.destroy();
+      provider?.destroy();
       logDebug('CodeMirror destroyed');
     };
   }, [token, gatewayWS, onReady]);
