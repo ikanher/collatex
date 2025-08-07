@@ -122,6 +122,9 @@ every 100&nbsp;ms to keep proxies happy. Prometheus metrics are exposed at
 ## Live Math Preview
 The editor renders LaTeX directly in the browser via MathJax. Set `VITE_USE_SERVER_COMPILE=true` to restore the legacy server compile flow.
 
+## Security model
+The Vite dev server relaxes the Content Security Policy to permit inline scripts and `eval` for tooling like React Refresh. Production builds remain locked down, relying on the strict CSP defined in `apps/frontend/nginx.conf`.
+
 ## Security TODO
 - Replace the temporary `better-xss` sanitiser with an AST-based policy.
 - Harden the Content Security Policy.

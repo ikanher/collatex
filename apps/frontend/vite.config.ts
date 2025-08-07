@@ -10,7 +10,10 @@ export default defineConfig({
   },
   server: {
     headers: {
-      'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline'",
+      // Dev-only: allow inline/eval for Vite client & React refresh
+      'Content-Security-Policy':
+        "default-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+        "style-src 'self' 'unsafe-inline'",
     },
   },
 });
