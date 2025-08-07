@@ -3,7 +3,7 @@ import { WebsocketProvider } from 'y-websocket';
 import { WS_URL } from './config';
 import { logDebug } from './debug';
 
-export function connectWs(doc: Y.Doc, url: string = WS_URL) {
-  logDebug('connectWs', url);
-  return new WebsocketProvider(url, 'main', doc);
+export function connectWs(doc: Y.Doc, token: string, url: string = WS_URL) {
+  logDebug('connectWs', `${url}/${token}`);
+  return new WebsocketProvider(url, token, doc);
 }

@@ -27,7 +27,7 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
     const ydoc = new Y.Doc();
     let provider: WebsocketProvider | undefined;
     try {
-      provider = new WebsocketProvider(`${gatewayWS}/${token}`, 'document', ydoc);
+      provider = new WebsocketProvider(gatewayWS, token, ydoc);
       logDebug('CodeMirror provider', `${gatewayWS}/${token}`);
     } catch (err) {
       if (window.location.hostname !== 'localhost') {
