@@ -23,9 +23,14 @@ const fillParent = EditorView.theme({
 const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
   const ref = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView>();
+  const ydocRef = useRef<Y.Doc | (() => Y.Doc)>(() => new Y.Doc());
 
   useEffect(() => {
-    const ydoc = new Y.Doc();
+    const ydoc =
+      typeof ydocRef.current === 'function'
+        ? ydocRef.current()
+        : ydocRef.current;
+    ydocRef.current = ydoc;
     let provider: WebsocketProvider | undefined;
     try {
       provider = new WebsocketProvider(`${gatewayWS}/${token}`, 'document', ydoc);
