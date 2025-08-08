@@ -23,17 +23,13 @@ const fillParent = EditorView.theme({
 const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
   const ref = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView>();
-  const ydocRef = useRef<Y.Doc | (() => Y.Doc)>(() => new Y.Doc());
+  const ydocRef = useRef<Y.Doc>(new Y.Doc());
 
   useEffect(() => {
-    const ydoc =
-      typeof ydocRef.current === 'function'
-        ? ydocRef.current()
-        : ydocRef.current;
-    ydocRef.current = ydoc;
+    const ydoc = ydocRef.current;
     let provider: WebsocketProvider | undefined;
     try {
-      provider = new WebsocketProvider(`${gatewayWS}/${token}`, 'document', ydoc);
+      provider = new WebsocketProvider(gatewayWS, token, ydoc);
       logDebug('CodeMirror provider', `${gatewayWS}/${token}`);
     } catch (err) {
       if (window.location.hostname !== 'localhost') {
@@ -47,7 +43,6 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
       ytext.insert(0, '\\documentclass{article}\\begin{document}\\end{document}');
     }
     const state = EditorState.create({
-      doc: ytext.toString(),
       extensions: [fillParent, keymap.of(defaultKeymap), latex(), yCollab(ytext, awareness)],
     });
     viewRef.current = new EditorView({ state, parent: ref.current! });
