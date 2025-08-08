@@ -6,6 +6,7 @@ import { latex } from 'codemirror-lang-latex';
 import { yCollab } from 'y-codemirror.next';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
+import { Awareness } from 'y-protocols/awareness';
 import { logDebug } from '../debug';
 
 interface Props {
@@ -27,21 +28,22 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
     const ydoc = new Y.Doc();
     let provider: WebsocketProvider | undefined;
     try {
-      provider = new WebsocketProvider(gatewayWS, token, ydoc);
+      provider = new WebsocketProvider(`${gatewayWS}/${token}`, 'document', ydoc);
       logDebug('CodeMirror provider', `${gatewayWS}/${token}`);
     } catch (err) {
       if (window.location.hostname !== 'localhost') {
         throw err;
       }
-      logDebug('CodeMirror provider failed to connect');
+      logDebug('CodeMirror provider failed');
     }
+    const awareness = provider?.awareness ?? new Awareness(ydoc);
     const ytext = ydoc.getText('document');
     if (ytext.length === 0) {
       ytext.insert(0, '\\documentclass{article}\\begin{document}\\end{document}');
     }
     const state = EditorState.create({
       doc: ytext.toString(),
-      extensions: [fillParent, keymap.of(defaultKeymap), latex(), yCollab(ytext, provider?.awareness)],
+      extensions: [fillParent, keymap.of(defaultKeymap), latex(), yCollab(ytext, awareness)],
     });
     viewRef.current = new EditorView({ state, parent: ref.current! });
     logDebug('CodeMirror ready');
@@ -49,6 +51,9 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
     return () => {
       viewRef.current?.destroy();
       provider?.destroy();
+      if (!provider) {
+        awareness.destroy();
+      }
       logDebug('CodeMirror destroyed');
     };
   }, [token, gatewayWS, onReady]);
