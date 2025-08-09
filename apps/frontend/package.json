@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
-    "test": "vitest",
+    "test": "cross-env CI=1 vitest run --reporter=basic",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
