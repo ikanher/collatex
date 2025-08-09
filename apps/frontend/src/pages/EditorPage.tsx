@@ -11,7 +11,6 @@ import { logDebug } from '../debug';
 const EditorPage: React.FC = () => {
   const { token, gatewayWS } = useProject();
   const [texStr, setTexStr] = useState<string>('');
-  const rafRef = useRef<number | null>(null);
   const unsubRef = useRef<() => void>();
   const previewRef = useRef<HTMLDivElement>(null);
   const [toast, setToast] = useState<string>('');
@@ -52,36 +51,24 @@ const EditorPage: React.FC = () => {
     pdf.save('collatex.pdf');
   }, []);
 
-  const scheduleRender = useCallback((text: Y.Text) => {
-    if (rafRef.current) return;
-    rafRef.current = requestAnimationFrame(() => {
-      setTexStr(text.toString());
-      rafRef.current = null;
-    });
-  }, []);
-
   const handleReady = useCallback(
     (text: Y.Text) => {
       logDebug('editor ready');
       const observer = () => {
         logDebug('ytext changed (Yjs)');
-        scheduleRender(text);
+        setTexStr(text.toString());
       };
       text.observe(observer);
       unsubRef.current = () => text.unobserve(observer);
 
       setTexStr(text.toString());
-      scheduleRender(text);
     },
-    [scheduleRender],
+    [],
   );
 
   useEffect(() => {
     return () => {
       unsubRef.current?.();
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-      }
     };
   }, []);
 
@@ -109,14 +96,13 @@ const EditorPage: React.FC = () => {
               token={token}
               gatewayWS={gatewayWS}
               onReady={handleReady}
-              onChange={text => scheduleRender(text)}
+              onChange={text => {
+                // Optional extra: log Yjs local changes if they do arrive
+                logDebug('onChange (Yjs path) len=', text.toString().length);
+              }}
               onDocChange={value => {
-                // Belt-and-suspenders: update from CodeMirror directly.
-                if (rafRef.current) return;
-                rafRef.current = requestAnimationFrame(() => {
-                  setTexStr(value);
-                  rafRef.current = null;
-                });
+                logDebug('onDocChange (CM path) len=', value.length);
+                setTexStr(value);
               }}
             />
           </div>
