@@ -27,6 +27,20 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
   const viewRef = useRef<EditorView>();
   const ydocRef = useRef<Y.Doc>(new Y.Doc());
 
+  // Stable refs for callbacks to avoid re-initializing the editor on prop changes
+  const onReadyRef = useRef<typeof onReady>();
+  const onChangeRef = useRef<typeof onChange>();
+  const onDocChangeRef = useRef<typeof onDocChange>();
+  useEffect(() => {
+    onReadyRef.current = onReady;
+  }, [onReady]);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+  useEffect(() => {
+    onDocChangeRef.current = onDocChange;
+  }, [onDocChange]);
+
   useEffect(() => {
     const ydoc = ydocRef.current;
     let provider: WebsocketProvider | undefined;
@@ -42,7 +56,7 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
     const awareness = provider?.awareness ?? new Awareness(ydoc);
     const ytext = ydoc.getText('document');
 
-    // NEW: seed immediately, and also on sync (both guarded, so no duplicates)
+    // seeding as currently implemented
     const seedKey = `collatex:seeded:${token}`;
     const seedString = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
     const trySeed = () => {
@@ -52,10 +66,8 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
         logDebug('seed inserted');
       }
     };
-    // seed NOW (covers offline/no-WS cases)
     trySeed();
-    // also seed on first successful sync (covers first-time shared doc)
-    if (provider?.on) {
+    if (provider) {
       const onSync = (isSynced: boolean) => {
         if (isSynced) trySeed();
       };
@@ -74,15 +86,16 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
           if (update.docChanged) {
             const val = update.state.doc.toString();
             console.debug('[debug] CM update docChanged len=', val.length);
-            onChange?.(ytext);
-            onDocChange?.(val);
+            // Use refs to avoid capturing stale closures
+            onChangeRef.current?.(ytext);
+            onDocChangeRef.current?.(val);
           }
         }),
       ],
     });
     viewRef.current = new EditorView({ state, parent: ref.current! });
     logDebug('CodeMirror ready');
-    onReady?.(ytext);
+    onReadyRef.current?.(ytext);
     return () => {
       viewRef.current?.destroy();
       provider?.destroy();
@@ -91,7 +104,8 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
       }
       logDebug('CodeMirror destroyed');
     };
-  }, [token, gatewayWS, onReady, onChange, onDocChange]);
+    // IMPORTANT: only re-run when token or gatewayWS change
+  }, [token, gatewayWS]);
 
   return <div ref={ref} className="h-full min-h-0" />;
 };
