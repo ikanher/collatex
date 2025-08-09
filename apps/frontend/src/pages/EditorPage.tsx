@@ -23,7 +23,10 @@ const EditorPage: React.FC = () => {
   const handleReady = useCallback(
     (text: Y.Text) => {
       logDebug('editor ready');
-      const observer = () => scheduleRender(text);
+      const observer = () => {
+        logDebug('ytext changed');
+        scheduleRender(text);
+      };
       text.observeDeep(observer);
       unsubRef.current = () => text.unobserveDeep(observer);
 

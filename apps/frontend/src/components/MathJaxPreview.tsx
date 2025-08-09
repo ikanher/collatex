@@ -48,13 +48,22 @@ const MathJaxPreview: React.FC<Props> = ({ source }) => {
       const container = containerRef.current!;
       const clean = sanitize(source);
       container.innerHTML = '';
-      if (!clean.trim()) {
-        container.textContent = 'Start typing…';
-      } else {
-        const node = doc.convert(clean, { display: false });
-        container.appendChild(node as unknown as Node);
+      const trimmed = clean.trim();
+      if (!trimmed) {
+        container.textContent =
+          'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
+        rafRef.current = null;
+        return;
       }
-      rafRef.current = null;
+      try {
+        const isDisplay = clean.includes('$$') || clean.includes('\\[');
+        const node = doc.convert(clean, { display: isDisplay });
+        container.appendChild(node as unknown as Node);
+      } catch (e) {
+        container.textContent = 'TeX error: ' + (e as Error).message;
+      } finally {
+        rafRef.current = null;
+      }
     });
   }
 

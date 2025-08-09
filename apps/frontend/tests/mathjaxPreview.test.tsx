@@ -49,7 +49,9 @@ describe('MathJaxPreview', () => {
     const { container } = render(<MathJaxPreview source="" />);
     await vi.runAllTimersAsync();
     await waitFor(() =>
-      expect(container.textContent).toContain('Start typing…'),
+      expect(container.textContent).toContain(
+        'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$',
+      ),
     );
   });
 });
