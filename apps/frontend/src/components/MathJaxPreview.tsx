@@ -1,183 +1,101 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { MathDocument } from 'mathjax-full/js/core/MathDocument.js';
+
 interface Props {
   source: string;
   containerRefExternal?: React.RefObject<HTMLDivElement>;
 }
 
-// Two-stage tokenizer for display and inline math
-function tokenize(src: string): Array<{ kind: 'text' | 'math'; value: string; display?: boolean }> {
-  type Span = { start: number; end: number; math: string; display: boolean };
-  const spans: Span[] = [];
-
-  // Helper to push regex matches as spans
-  function pushMatches(re: RegExp, display: boolean) {
-    re.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(src)) !== null) {
-      spans.push({ start: m.index, end: m.index + m[0].length, math: m[1], display });
-    }
-  }
-
-  // 1) Collect display spans first
-  pushMatches(/\$\$([\s\S]*?)\$\$/g, true);     // $$ ... $$
-  pushMatches(/\\\[([\s\S]*?)\\\]/g, true);     // \[ ... \]
-
-  // Sort & merge overlapping display spans (rare but safe)
-  spans.sort((a, b) => a.start - b.start);
-  const displaySpans: Span[] = [];
-  for (const s of spans) {
-    if (!s.display) continue;
-    const last = displaySpans[displaySpans.length - 1];
-    if (last && s.start <= last.end) {
-      // merge
-      last.end = Math.max(last.end, s.end);
-      last.math = ''; // math content irrelevant for overlap bookkeeping
-    } else {
-      displaySpans.push({ ...s });
-    }
-  }
-
-  // Utility: is [a,b) fully inside any display span?
-  const insideDisplay = (a: number, b: number) =>
-    displaySpans.some(d => a >= d.start && b <= d.end);
-
-  // 2) Add \(...\) inline spans (independent of $$ and \[ \])
-  const inlineParens: Span[] = [];
-  {
-    const re = /\\\(([\s\S]*?)\\\)/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(src)) !== null) {
-      const start = m.index, end = start + m[0].length;
-      if (!insideDisplay(start, end)) {
-        inlineParens.push({ start, end, math: m[1], display: false });
-      }
-    }
-  }
-
-  // 3) Add safe $...$ inline spans (no lookbehind; check neighbors in JS)
-  const inlineDollar: Span[] = [];
-  {
-    const re = /\$([^$\n]+)\$/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(src)) !== null) {
-      const start = m.index;
-      const end = start + m[0].length;
-      const prev = start > 0 ? src[start - 1] : '';
-      const next = end < src.length ? src[end] : '';
-      const escaped = start > 0 && src[start - 1] === '\\';
-      // guard: not escaped, not $$ on either side, and not inside display
-      if (!escaped && prev !== '$' && next !== '$' && !insideDisplay(start, end)) {
-        inlineDollar.push({ start, end, math: m[1], display: false });
-      }
-    }
-  }
-
-  // Combine all spans
-  const all: Span[] = [...displaySpans, ...inlineParens, ...inlineDollar];
-  // Remove duplicates/overlaps by picking earliest non-overlapping
-  all.sort((a, b) => a.start - b.start || (a.end - a.start) - (b.end - b.start));
-  const picked: Span[] = [];
-  let cursor = 0;
-  for (const s of all) {
-    const last = picked[picked.length - 1];
-    if (!last || s.start >= last.end) picked.push(s);
-  }
-
-  // Emit parts
-  const parts: Array<{ kind: 'text' | 'math'; value: string; display?: boolean }> = [];
-  for (const s of picked) {
-    if (s.start > cursor) parts.push({ kind: 'text', value: src.slice(cursor, s.start) });
-    parts.push({ kind: 'math', value: s.math, display: s.display });
-    cursor = s.end;
-  }
-  if (cursor < src.length) parts.push({ kind: 'text', value: src.slice(cursor) });
-  return parts;
+interface MathJaxApi {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  html: any; // MathJax MathDocument
+  adaptor: unknown;
 }
 
 const MathJaxPreview: React.FC<Props> = ({ source, containerRefExternal }) => {
   const containerRef = containerRefExternal ?? useRef<HTMLDivElement>(null);
-  const mjRef = useRef<{ doc: MathDocument<unknown, unknown, unknown> } | null>(null);
-  const rafRef = useRef<number | null>(null);
+  const mjRef = useRef<MathJaxApi | null>(null);
   const [ready, setReady] = useState(false);
+  const versionRef = useRef(0); // bump per source change to cancel stale renders
+  const timerRef = useRef<number | null>(null); // debounce timer
 
+  // Init MathJax once
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const [{ mathjax }, { TeX }, { SVG }, { browserAdaptor }, { RegisterHTMLHandler }] = await Promise.all([
-          import('mathjax-full/js/mathjax.js'),
-          import('mathjax-full/js/input/tex.js'),
-          import('mathjax-full/js/output/svg.js'),
-          import('mathjax-full/js/adaptors/browserAdaptor.js'),
-          import('mathjax-full/js/handlers/html.js'),
-        ]);
-        const adaptor = browserAdaptor();
-        RegisterHTMLHandler(adaptor);
-        const tex = new TeX({ packages: ['base', 'ams'] });
-        const svg = new SVG({ fontCache: 'none' });
-        const doc = mathjax.document('', { InputJax: tex, OutputJax: svg });
-        if (!cancelled) {
-          mjRef.current = { doc };
-          setReady(true);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          mjRef.current = null;
-          setReady(true); // allow render to show error state
-        }
+      const [{ mathjax }, { TeX }, { SVG }, { browserAdaptor }, { RegisterHTMLHandler }] = await Promise.all([
+        import('mathjax-full/js/mathjax.js'),
+        import('mathjax-full/js/input/tex.js'),
+        import('mathjax-full/js/output/svg.js'),
+        import('mathjax-full/js/adaptors/browserAdaptor.js'),
+        import('mathjax-full/js/handlers/html.js'),
+      ]);
+      const adaptor = browserAdaptor();
+      RegisterHTMLHandler(adaptor);
+      const tex = new TeX({
+        packages: ['base', 'ams'],
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true,
+        processEnvironments: true,
+      });
+      const svg = new SVG({ fontCache: 'none' });
+      // Bind to window.document; we'll scope findMath/typeset to our container
+      const html = mathjax.document(window.document, { InputJax: tex, OutputJax: svg });
+      if (!cancelled) {
+        mjRef.current = { html, adaptor };
+        setReady(true);
       }
-    })();
-    return () => { cancelled = true; };
+    })().catch(() => {
+      if (!cancelled) setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  function scheduleRender() {
-    if (rafRef.current) return;
-    rafRef.current = requestAnimationFrame(() => {
-      const container = containerRef.current!;
-      container.innerHTML = '';
-      const trimmed = source.trim();
-      if (!trimmed) {
-        container.textContent = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
-        rafRef.current = null;
-        return;
-      }
-      if (!mjRef.current || typeof mjRef.current.doc.convert !== 'function') {
-        container.textContent = 'MathJax failed: doc.convert missing';
-        rafRef.current = null;
-        return;
-      }
-      try {
-        const { doc } = mjRef.current;
-        const parts = tokenize(source);
-        if (parts.length === 0) {
-          container.appendChild(document.createTextNode(source)); // fallback: plain text
-        } else {
-          for (const p of parts) {
-            if (p.kind === 'text') {
-              container.appendChild(document.createTextNode(p.value));
-            } else {
-              const node = doc.convert(p.value, { display: p.display });
-              container.appendChild(node as unknown as Node);
-            }
-          }
-        }
-      } catch (e) {
-        container.textContent = 'TeX error: ' + (e as Error).message;
-      } finally {
-        rafRef.current = null;
-      }
-    });
-  }
-
+  // Render with debounce and stale-cancel
   useEffect(() => {
     if (!ready) return;
-    console.debug('[debug] MathJaxPreview render source len=', source.length, 'ready=', ready);
-    scheduleRender();
+    const v = ++versionRef.current;
+    const container = containerRef.current!;
+
+    // Clear any pending debounce
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // If empty, show hint and skip typeset
+    const trimmed = source.trim();
+    if (!trimmed) {
+      container.textContent = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
+      return;
+    }
+
+    // Debounce a bit to avoid hammering MathJax while typing
+    timerRef.current = window.setTimeout(async () => {
+      // If another render started, drop this one
+      if (v !== versionRef.current) return;
+      const mj = mjRef.current;
+      if (!mj) {
+        container.textContent = 'MathJax failed to initialize.';
+        return;
+      }
+      // Write text content (no HTML), then typeset only this container
+      container.textContent = source;
+      try {
+        mj.html.clear();
+        mj.html.findMath({ elements: [container] });
+        await mj.html.typesetPromise([container]);
+      } catch (e) {
+        container.textContent = 'TeX error: ' + (e as Error).message;
+      }
+    }, 60); // 60–100ms feels good
+
     return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
       }
     };
   }, [source, ready]);
