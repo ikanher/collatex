@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import CodeMirror from '../components/CodeMirror';
 import { useProject } from '../hooks/useProject';
 import MathJaxPreview from '../components/MathJaxPreview';
@@ -25,35 +27,29 @@ const EditorPage: React.FC = () => {
     }
   }, []);
 
-  const handleDownloadPdf = React.useCallback(() => {
+  const handleDownloadPdf = React.useCallback(async () => {
     const node = previewRef.current;
     if (!node) return;
-    const w = window.open('', '_blank', 'noopener,noreferrer,width=800,height=1000');
-    if (!w) return;
-    const html = `
-    <!doctype html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>CollaTeX Export</title>
-      <style>
-        @page { margin: 16mm; }
-        body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, 'Noto Sans', 'Apple Color Emoji','Segoe UI Emoji'; }
-        .mjx-display { margin: 12px 0; }
-        pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; }
-        .content { white-space: pre-wrap; }
-        /* Ensure SVG math renders fully width-wise */
-        svg { max-width: 100%; }
-      </style>
-    </head>
-    <body>
-      <div class="content">${node.innerHTML}</div>
-      <script>window.onload = () => window.print();</script>
-    </body>
-    </html>`;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
+    // Render at higher scale for clarity
+    const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    let y = 0;
+    let remaining = imgHeight;
+    // Add pages if content exceeds one page
+    while (remaining > 0) {
+      // Add the image; jsPDF positions it at (0, y) on each page
+      pdf.addImage(imgData, 'PNG', 0, y ? -y : 0, imgWidth, imgHeight);
+      remaining -= pageHeight;
+      y += pageHeight;
+      if (remaining > 0) pdf.addPage();
+    }
+    pdf.save('collatex.pdf');
   }, []);
 
   const scheduleRender = useCallback((text: Y.Text) => {
