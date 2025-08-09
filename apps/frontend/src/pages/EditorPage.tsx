@@ -27,8 +27,8 @@ const EditorPage: React.FC = () => {
         logDebug('ytext changed');
         scheduleRender(text);
       };
-      text.observeDeep(observer);
-      unsubRef.current = () => text.unobserveDeep(observer);
+      text.observe(observer);
+      unsubRef.current = () => text.unobserve(observer);
 
       setTexStr(text.toString());
       scheduleRender(text);
