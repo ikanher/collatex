@@ -124,7 +124,12 @@ const MathJaxPreview: React.FC<Props> = ({ source }) => {
     };
   }, [source, ready]);
 
-  return <div ref={containerRef} className="p-2 overflow-auto h-full" />;
+  return (
+    <div
+      ref={containerRef}
+      className="p-2 overflow-auto h-full whitespace-pre-wrap"
+    />
+  );
 };
 
 export default MathJaxPreview;

@@ -10,3 +10,5 @@ html, body, #root {
 .cm-editor { height: 100%; display: flex; flex-direction: column; }
 .cm-scroller { flex: 1 1 auto; overflow: auto; }
 .cm-content { white-space: pre; caret-color: currentColor; }
+
+.mjx-display { margin: 0.5rem 0; }
