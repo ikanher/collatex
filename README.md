@@ -39,6 +39,16 @@ Tasks:
 - Load testing for WebSocket
 - Frontend E2E test script
 
+### Running tests
+
+Run all JavaScript test suites with:
+
+```bash
+npm test
+```
+
+This command executes Vitest and Jest in CI mode so no interactive watchers or prompts block automated runs.
+
 ## 6) Infra Agent
 Goal: Local and CI infrastructure
 Tasks:
