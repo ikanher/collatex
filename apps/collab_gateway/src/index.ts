@@ -65,6 +65,14 @@ export function createServer(): http.Server {
       socket.destroy();
       return;
     }
+    const isProd = process.env.NODE_ENV === 'production';
+    if (!isProd) {
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        setupWSConnection(ws, req);
+        connectionsTotal.labels(token!).inc();
+      });
+      return;
+    }
     const exists = await redis.hGet('collatex:projects', token);
     if (!exists) {
       socket.write('HTTP/1.1 404 Not Found\r\n\r\n');

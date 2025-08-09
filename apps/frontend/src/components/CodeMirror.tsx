@@ -40,7 +40,7 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
     const awareness = provider?.awareness ?? new Awareness(ydoc);
     const ytext = ydoc.getText('document');
     if (ytext.length === 0) {
-      ytext.insert(0, '\\documentclass{article}\\begin{document}\\end{document}');
+      ytext.insert(0, 'Type math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$');
     }
     const state = EditorState.create({
       extensions: [fillParent, keymap.of(defaultKeymap), latex(), yCollab(ytext, awareness)],
