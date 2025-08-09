@@ -43,7 +43,15 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
       ytext.insert(0, 'Type math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$');
     }
     const state = EditorState.create({
-      extensions: [fillParent, keymap.of(defaultKeymap), latex(), yCollab(ytext, awareness)],
+      extensions: [
+        fillParent,
+        keymap.of(defaultKeymap),
+        latex(),
+        yCollab(ytext, awareness),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) onReady?.(ytext);
+        }),
+      ],
     });
     viewRef.current = new EditorView({ state, parent: ref.current! });
     logDebug('CodeMirror ready');
