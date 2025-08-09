@@ -98,6 +98,22 @@ const MathJaxPreview: React.FC<Props> = ({ source, containerRefExternal }) => {
         html.getMetrics(); // compute sizes based on container
         html.typeset(); // generate SVG/CHTML
         html.updateDocument(); // push results into the DOM
+        // Normalize whitespace around display math that MathJax wraps with newline text nodes.
+        const displays = container.querySelectorAll('mjx-container[display="true"]');
+        displays.forEach((node) => {
+          const prev = node.previousSibling;
+          if (prev && prev.nodeType === Node.TEXT_NODE) {
+            const text = prev as Text;
+            // collapse trailing whitespace before the math to a single space
+            text.data = text.data.replace(/\s+$/u, ' ');
+          }
+          const next = node.nextSibling;
+          if (next && next.nodeType === Node.TEXT_NODE) {
+            const text = next as Text;
+            // collapse leading whitespace after the math to a single space
+            text.data = text.data.replace(/^\s+/u, ' ');
+          }
+        });
       } catch (e) {
         container.textContent = 'TeX error: ' + (e as Error).message;
       }
