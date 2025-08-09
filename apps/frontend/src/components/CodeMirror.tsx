@@ -40,23 +40,27 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
     const awareness = provider?.awareness ?? new Awareness(ydoc);
     const ytext = ydoc.getText('document');
 
-    // Seed once after sync if empty (or when no provider).
+    // NEW: seed immediately, and also on sync (both guarded, so no duplicates)
     const seedKey = `collatex:seeded:${token}`;
-    const doSeed = () => {
+    const seedString = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
+    const trySeed = () => {
       if (ytext.length === 0 && !localStorage.getItem(seedKey)) {
-        ytext.insert(0, 'Type math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$');
+        ytext.insert(0, seedString);
         localStorage.setItem(seedKey, '1');
+        logDebug('seed inserted');
       }
     };
+    // seed NOW (covers offline/no-WS cases)
+    trySeed();
+    // also seed on first successful sync (covers first-time shared doc)
     if (provider?.on) {
-      provider.on('sync', (isSynced: boolean) => {
-        if (isSynced) doSeed();
-      });
-    } else {
-      // Offline/local mode or provider without events
-      doSeed();
+      const onSync = (isSynced: boolean) => {
+        if (isSynced) trySeed();
+      };
+      provider.on('sync', onSync);
     }
 
+    // Create state AFTER potential seeding so initial doc is visible
     const state = EditorState.create({
       doc: ytext.toString(),
       extensions: [fillParent, keymap.of(defaultKeymap), latex(), yCollab(ytext, awareness)],
