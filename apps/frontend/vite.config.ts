@@ -14,10 +14,11 @@ export default defineConfig({
     headers: {
       // Dev-only: allow inline/eval for Vite client & React refresh
       'Content-Security-Policy':
-        "default-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+        "default-src 'self'; " +
         "style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data:; " +
-        `connect-src 'self' ${apiOrigin} ${wsOrigin}`,
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; " +
+        `connect-src 'self' ${apiOrigin} ${wsOrigin} /latexwasm`,
     },
   },
 });

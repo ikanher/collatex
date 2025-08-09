@@ -1,19 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import CodeMirror from '../components/CodeMirror';
 import { useProject } from '../hooks/useProject';
 import MathJaxPreview from '../components/MathJaxPreview';
 import { USE_SERVER_COMPILE } from '../config';
 import { logDebug } from '../debug';
+import { compilePdfTeX } from '../lib/latexWasm';
 
 const EditorPage: React.FC = () => {
   const { token, gatewayWS } = useProject();
   const [texStr, setTexStr] = useState<string>('');
   const unsubRef = useRef<() => void>();
-  const previewRef = useRef<HTMLDivElement>(null);
   const [toast, setToast] = useState<string>('');
+  const [compiling, setCompiling] = React.useState(false);
+  const [compileLog, setCompileLog] = React.useState<string>('');
 
   const handleShare = React.useCallback(async () => {
     try {
@@ -27,29 +27,28 @@ const EditorPage: React.FC = () => {
   }, []);
 
   const handleDownloadPdf = React.useCallback(async () => {
-    const node = previewRef.current;
-    if (!node) return;
-    // Render at higher scale for clarity
-    const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    let y = 0;
-    let remaining = imgHeight;
-    // Add pages if content exceeds one page
-    while (remaining > 0) {
-      // Add the image; jsPDF positions it at (0, y) on each page
-      pdf.addImage(imgData, 'PNG', 0, y ? -y : 0, imgWidth, imgHeight);
-      remaining -= pageHeight;
-      y += pageHeight;
-      if (remaining > 0) pdf.addPage();
+    if (compiling) return;
+    const src = texStr || '%% empty document';
+    setCompiling(true);
+    setCompileLog('');
+    try {
+      const { pdf, log } = await compilePdfTeX(src);
+      setCompileLog(log ?? '');
+      const blob = new Blob([pdf], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'collatex.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setCompileLog(String(e));
+    } finally {
+      setCompiling(false);
     }
-    pdf.save('collatex.pdf');
-  }, []);
+  }, [texStr, compiling]);
 
   const handleReady = useCallback(
     (text: Y.Text) => {
@@ -86,7 +85,19 @@ const EditorPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={handleShare}>Share</button>
-          <button className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700" onClick={handleDownloadPdf}>Download PDF</button>
+          <button
+            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+            onClick={handleDownloadPdf}
+            disabled={compiling}
+          >
+            {compiling ? 'Compiling…' : 'Download PDF'}
+          </button>
+          {compileLog && (
+            <details className="ml-2 text-xs text-gray-600">
+              <summary>Show LaTeX log</summary>
+              <pre className="max-h-60 overflow-auto whitespace-pre-wrap">{compileLog}</pre>
+            </details>
+          )}
         </div>
       </header>
       <div className="flex-1 min-h-0 flex">
@@ -110,7 +121,7 @@ const EditorPage: React.FC = () => {
           </div>
         </div>
         <div className="w-1/2 h-full min-h-0 p-2">
-          <MathJaxPreview source={texStr} containerRefExternal={previewRef} />
+          <MathJaxPreview source={texStr} />
         </div>
       </div>
       <footer className="px-4 py-2 border-t text-xs text-gray-500 flex items-center justify-between">
