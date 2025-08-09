@@ -2,17 +2,26 @@ import { render, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('mathjax-full/js/mathjax.js', () => ({
-  mathjax: {
-    document: () => ({
-      convert: (s: string) => {
-        const el = document.createElement('svg');
-        el.textContent = s;
-        return el;
-      },
+vi.mock('mathjax-full/js/mathjax.js', () => {
+  const html = {
+    // Keep a reference to the container we'll typeset into
+    _container: null as HTMLElement | null,
+    clear: vi.fn(),
+    findMath: vi.fn(({ elements }: { elements: HTMLElement[] }) => {
+      html._container = elements[0];
     }),
-  },
-}));
+    compile: vi.fn(),
+    getMetrics: vi.fn(),
+    typeset: vi.fn(),
+    updateDocument: vi.fn(() => {
+      if (html._container) {
+        const src = html._container.textContent ?? '';
+        html._container.innerHTML = `<svg>${src}</svg>`;
+      }
+    }),
+  };
+  return { mathjax: { document: () => html } };
+});
 vi.mock('mathjax-full/js/input/tex.js', () => ({ TeX: class {} }));
 vi.mock('mathjax-full/js/output/svg.js', () => ({ SVG: class {} }));
 vi.mock('mathjax-full/js/adaptors/browserAdaptor.js', () => ({ browserAdaptor: () => ({}) }));

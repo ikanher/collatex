@@ -34,6 +34,7 @@ vi.mock('y-websocket', () => ({
     this.awareness = new Awareness(doc);
     this.doc = doc;
     this.destroy = vi.fn();
+    this.on = vi.fn();
   }),
 }));
 import { WebsocketProvider } from 'y-websocket';
