@@ -1,6 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
-// TODO(security): replace better-xss with stricter AST-based sanitizer.
-import sanitize from '../lib/better-xss';
+
+function extractFirstMath(src: string): { math: string; display: boolean } | null {
+  // $$ ... $$
+  let m = src.match(/\$\$([\s\S]*?)\$\$/);
+  if (m) return { math: m[1], display: true };
+  // \[ ... \]
+  m = src.match(/\\\[([\s\S]*?)\\\]/);
+  if (m) return { math: m[1], display: true };
+  // \( ... \)
+  m = src.match(/\\\(([\s\S]*?)\\\)/);
+  if (m) return { math: m[1], display: false };
+  // $ ... $
+  m = src.match(/\$([^$]+)\$/);
+  if (m) return { math: m[1], display: false };
+  // Fallback: if the string has TeX-like commands, treat the whole thing as math
+  if (/\\[a-zA-Z]+|[_^{}]/.test(src.trim())) {
+    return { math: src.trim(), display: false };
+  }
+  return null;
+}
 
 interface Props {
   source: string;
@@ -46,9 +64,8 @@ const MathJaxPreview: React.FC<Props> = ({ source }) => {
         doc: { convert: (s: string, o?: unknown) => unknown };
       };
       const container = containerRef.current!;
-      const clean = sanitize(source);
       container.innerHTML = '';
-      const trimmed = clean.trim();
+      const trimmed = source.trim();
       if (!trimmed) {
         container.textContent =
           'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
@@ -56,8 +73,14 @@ const MathJaxPreview: React.FC<Props> = ({ source }) => {
         return;
       }
       try {
-        const isDisplay = clean.includes('$$') || clean.includes('\\[');
-        const node = doc.convert(clean, { display: isDisplay });
+        const seg = extractFirstMath(trimmed);
+        if (!seg) {
+          container.textContent = 'No math delimiters found. Use \\(...\\) or $$ ... $$';
+          rafRef.current = null;
+          return;
+        }
+        // IMPORTANT: do not sanitize TeX before convert()
+        const node = doc.convert(seg.math, { display: seg.display });
         container.appendChild(node as unknown as Node);
       } catch (e) {
         container.textContent = 'TeX error: ' + (e as Error).message;
