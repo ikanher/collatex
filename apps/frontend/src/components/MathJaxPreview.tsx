@@ -39,10 +39,12 @@ function tokenize(
 
 interface Props {
   source: string;
+  containerRefExternal?: React.RefObject<HTMLDivElement>;
 }
 
-const MathJaxPreview: React.FC<Props> = ({ source }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+const MathJaxPreview: React.FC<Props> = ({ source, containerRefExternal }) => {
+  const internalRef = useRef<HTMLDivElement>(null);
+  const containerRef = containerRefExternal ?? internalRef;
   const mjRef = useRef<unknown>(null);
   const rafRef = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
