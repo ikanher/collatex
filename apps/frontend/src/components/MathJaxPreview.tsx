@@ -94,6 +94,7 @@ const MathJaxPreview: React.FC<Props> = ({ source, containerRefExternal }) => {
 
   function scheduleRender() {
     if (rafRef.current) return;
+    console.log('scheduleRender source length', source.length);
     rafRef.current = requestAnimationFrame(() => {
       const container = containerRef.current!;
       container.innerHTML = '';

@@ -64,7 +64,7 @@ const EditorPage: React.FC = () => {
     (text: Y.Text) => {
       logDebug('editor ready');
       const observer = () => {
-        logDebug('ytext changed');
+        logDebug('ytext changed (Yjs)');
         scheduleRender(text);
       };
       text.observe(observer);
@@ -105,7 +105,20 @@ const EditorPage: React.FC = () => {
             </div>
           )}
           <div className="flex-1 min-h-0 p-2">
-            <CodeMirror token={token} gatewayWS={gatewayWS} onReady={handleReady} />
+            <CodeMirror
+              token={token}
+              gatewayWS={gatewayWS}
+              onReady={handleReady}
+              onChange={text => scheduleRender(text)}
+              onDocChange={value => {
+                // Belt-and-suspenders: update from CodeMirror directly.
+                if (rafRef.current) return;
+                rafRef.current = requestAnimationFrame(() => {
+                  setTexStr(value);
+                  rafRef.current = null;
+                });
+              }}
+            />
           </div>
         </div>
         <div className="w-1/2 h-full min-h-0 p-2">

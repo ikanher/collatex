@@ -13,6 +13,8 @@ interface Props {
   token: string;
   gatewayWS: string;
   onReady?: (text: Y.Text) => void;
+  onChange?: (text: Y.Text) => void;
+  onDocChange?: (value: string) => void;
 }
 
 const fillParent = EditorView.theme({
@@ -20,7 +22,7 @@ const fillParent = EditorView.theme({
   '.cm-scroller': { overflow: 'auto' },
 });
 
-const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
+const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDocChange }) => {
   const ref = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView>();
   const ydocRef = useRef<Y.Doc>(new Y.Doc());
@@ -63,7 +65,18 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
     // Create state AFTER potential seeding so initial doc is visible
     const state = EditorState.create({
       doc: ytext.toString(),
-      extensions: [fillParent, keymap.of(defaultKeymap), latex(), yCollab(ytext, awareness)],
+      extensions: [
+        fillParent,
+        keymap.of(defaultKeymap),
+        latex(),
+        yCollab(ytext, awareness),
+        EditorView.updateListener.of(update => {
+          if (update.docChanged) {
+            onChange?.(ytext);
+            onDocChange?.(update.state.doc.toString());
+          }
+        }),
+      ],
     });
     viewRef.current = new EditorView({ state, parent: ref.current! });
     logDebug('CodeMirror ready');
@@ -76,7 +89,7 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
       }
       logDebug('CodeMirror destroyed');
     };
-  }, [token, gatewayWS, onReady]);
+  }, [token, gatewayWS, onReady, onChange, onDocChange]);
 
   return <div ref={ref} className="h-full min-h-0" />;
 };
