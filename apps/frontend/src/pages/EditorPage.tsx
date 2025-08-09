@@ -66,6 +66,11 @@ const EditorPage: React.FC = () => {
     [],
   );
 
+  const handleDocChange = useCallback((value: string) => {
+    logDebug('onDocChange (CM path) len=', value.length);
+    setTexStr(value);
+  }, []);
+
   useEffect(() => {
     return () => {
       unsubRef.current?.();
@@ -100,10 +105,7 @@ const EditorPage: React.FC = () => {
                 // Optional extra: log Yjs local changes if they do arrive
                 logDebug('onChange (Yjs path) len=', text.toString().length);
               }}
-              onDocChange={value => {
-                logDebug('onDocChange (CM path) len=', value.length);
-                setTexStr(value);
-              }}
+              onDocChange={handleDocChange}
             />
           </div>
         </div>
