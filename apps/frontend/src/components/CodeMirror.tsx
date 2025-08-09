@@ -38,22 +38,29 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady }) => {
       logDebug('CodeMirror provider failed');
     }
     const awareness = provider?.awareness ?? new Awareness(ydoc);
-      const ytext = ydoc.getText('document');
-      if (ytext.length === 0) {
+    const ytext = ydoc.getText('document');
+
+    // Seed once after sync if empty (or when no provider).
+    const seedKey = `collatex:seeded:${token}`;
+    const doSeed = () => {
+      if (ytext.length === 0 && !localStorage.getItem(seedKey)) {
         ytext.insert(0, 'Type math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$');
+        localStorage.setItem(seedKey, '1');
       }
-      const state = EditorState.create({
-        doc: ytext.toString(),
-        extensions: [
-          fillParent,
-          keymap.of(defaultKeymap),
-          latex(),
-          yCollab(ytext, awareness),
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged) onReady?.(ytext);
-          }),
-        ],
+    };
+    if (provider?.on) {
+      provider.on('sync', (isSynced: boolean) => {
+        if (isSynced) doSeed();
       });
+    } else {
+      // Offline/local mode or provider without events
+      doSeed();
+    }
+
+    const state = EditorState.create({
+      doc: ytext.toString(),
+      extensions: [fillParent, keymap.of(defaultKeymap), latex(), yCollab(ytext, awareness)],
+    });
     viewRef.current = new EditorView({ state, parent: ref.current! });
     logDebug('CodeMirror ready');
     onReady?.(ytext);
