@@ -12,3 +12,8 @@ html, body, #root {
 .cm-content { white-space: pre; caret-color: currentColor; }
 
 .mjx-display { margin: 0.5rem 0; }
+/* Force display math ($$...$$) to flow inline instead of breaking to a new line */
+.mjx-display {
+  display: inline;
+  margin: 0 0.25em; /* small horizontal spacing */
+}
