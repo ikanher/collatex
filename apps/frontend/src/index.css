@@ -11,20 +11,10 @@ html, body, #root {
 .cm-scroller { flex: 1 1 auto; overflow: auto; }
 .cm-content { white-space: pre; caret-color: currentColor; }
 
-/* MathJax: keep display math inline when scanning for $$...$$ */
-mjx-container[jax="SVG"][display="true"] {
-  display: inline;          /* or inline-block */
-  margin: 0 0.25em;         /* small spacing */
-  text-align: inherit;      /* cancel center alignment */
-  line-height: inherit;     /* align with surrounding text line height */
+mjx-container[jax="SVG"] {
+  margin: 0 0.25em;         /* subtle spacing around inline math */
 }
+
 mjx-container[jax="SVG"] svg {
   overflow: visible;        /* avoid clipping tall math when inline */
 }
-/* Optional CHTML output override:
-mjx-container[jax="CHTML"][display="true"] {
-  display: inline;
-  margin: 0 0.25em;
-  text-align: inherit;
-}
-*/
