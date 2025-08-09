@@ -17,7 +17,7 @@ export default defineConfig({
         "default-src 'self'; " +
         "style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data:; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
         `connect-src 'self' ${apiOrigin} ${wsOrigin} /latexwasm`,
     },
   },

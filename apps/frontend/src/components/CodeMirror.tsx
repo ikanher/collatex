@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { EditorState } from '@codemirror/state';
-import { EditorView, keymap } from '@codemirror/view';
+import { EditorView, keymap, placeholder } from '@codemirror/view';
 import { defaultKeymap } from '@codemirror/commands';
 import { latex } from 'codemirror-lang-latex';
 import { yCollab } from 'y-codemirror.next';
@@ -21,6 +21,8 @@ const fillParent = EditorView.theme({
   '&': { height: '100%' },
   '.cm-scroller': { overflow: 'auto' },
 });
+
+const SEED_HINT = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
 
 const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDocChange }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -56,25 +58,6 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
     const awareness = provider?.awareness ?? new Awareness(ydoc);
     const ytext = ydoc.getText('document');
 
-    // seeding as currently implemented
-    const seedKey = `collatex:seeded:${token}`;
-    const seedString = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
-    const trySeed = () => {
-      if (ytext.length === 0 && !localStorage.getItem(seedKey)) {
-        ytext.insert(0, seedString);
-        localStorage.setItem(seedKey, '1');
-        logDebug('seed inserted');
-      }
-    };
-    trySeed();
-    if (provider) {
-      const onSync = (isSynced: boolean) => {
-        if (isSynced) trySeed();
-      };
-      provider.on('sync', onSync);
-    }
-
-    // Create state AFTER potential seeding so initial doc is visible
     const state = EditorState.create({
       doc: ytext.toString(),
       extensions: [
@@ -82,6 +65,10 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
         keymap.of(defaultKeymap),
         latex(),
         yCollab(ytext, awareness),
+        placeholder(SEED_HINT),
+        EditorView.theme({
+          '.cm-placeholder': { color: '#9ca3af' },
+        }),
         EditorView.updateListener.of(update => {
           if (update.docChanged) {
             const val = update.state.doc.toString();
