@@ -94,7 +94,6 @@ const MathJaxPreview: React.FC<Props> = ({ source, containerRefExternal }) => {
 
   function scheduleRender() {
     if (rafRef.current) return;
-    console.log('scheduleRender source length', source.length);
     rafRef.current = requestAnimationFrame(() => {
       const container = containerRef.current!;
       container.innerHTML = '';
@@ -105,7 +104,7 @@ const MathJaxPreview: React.FC<Props> = ({ source, containerRefExternal }) => {
         return;
       }
       if (!mjRef.current || typeof mjRef.current.doc.convert !== 'function') {
-        container.textContent = 'MathJax failed to initialize. Reload the page.';
+        container.textContent = 'MathJax failed: doc.convert missing';
         rafRef.current = null;
         return;
       }
@@ -134,6 +133,7 @@ const MathJaxPreview: React.FC<Props> = ({ source, containerRefExternal }) => {
 
   useEffect(() => {
     if (!ready) return;
+    console.debug('[debug] MathJaxPreview render source len=', source.length, 'ready=', ready);
     scheduleRender();
     return () => {
       if (rafRef.current !== null) {

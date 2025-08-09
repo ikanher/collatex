@@ -72,8 +72,10 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
         yCollab(ytext, awareness),
         EditorView.updateListener.of(update => {
           if (update.docChanged) {
+            const val = update.state.doc.toString();
+            console.debug('[debug] CM update docChanged len=', val.length);
             onChange?.(ytext);
-            onDocChange?.(update.state.doc.toString());
+            onDocChange?.(val);
           }
         }),
       ],
