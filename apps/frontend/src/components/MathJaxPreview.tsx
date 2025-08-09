@@ -1,23 +1,40 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-function extractFirstMath(src: string): { math: string; display: boolean } | null {
-  // $$ ... $$
-  let m = src.match(/\$\$([\s\S]*?)\$\$/);
-  if (m) return { math: m[1], display: true };
-  // \[ ... \]
-  m = src.match(/\\\[([\s\S]*?)\\\]/);
-  if (m) return { math: m[1], display: true };
-  // \( ... \)
-  m = src.match(/\\\(([\s\S]*?)\\\)/);
-  if (m) return { math: m[1], display: false };
-  // $ ... $
-  m = src.match(/\$([^$]+)\$/);
-  if (m) return { math: m[1], display: false };
-  // Fallback: if the string has TeX-like commands, treat the whole thing as math
-  if (/\\[a-zA-Z]+|[_^{}]/.test(src.trim())) {
-    return { math: src.trim(), display: false };
+function tokenize(
+  src: string,
+): Array<{ kind: 'text' | 'math'; value: string; display?: boolean }> {
+  const parts: Array<{ kind: 'text' | 'math'; value: string; display?: boolean }> = [];
+  // Order matters: display forms before inline to avoid greedy $...$ swallowing $$...$$
+  const patterns = [
+    { re: /\$\$([\s\S]*?)\$\$/g, display: true },
+    { re: /\\\[([\s\S]*?)\\\]/g, display: true },
+    { re: /\\\(([\s\S]*?)\\\)/g, display: false },
+    // single $...$ (not $$), exclude $$ by negative lookahead/lookbehind
+    { re: /(?<!\$)\$([^$\n]+)\$(?!\$)/g, display: false },
+  ];
+  let idx = 0;
+  // Build a merged list of matches across all patterns without losing order
+  type M = { start: number; end: number; math: string; display: boolean };
+  const matches: M[] = [];
+  for (const p of patterns) {
+    p.re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = p.re.exec(src)) !== null) {
+      matches.push({ start: m.index, end: m.index + m[0].length, math: m[1], display: p.display });
+    }
   }
-  return null;
+  matches.sort((a, b) => a.start - b.start);
+  for (const m of matches) {
+    if (m.start > idx) {
+      parts.push({ kind: 'text', value: src.slice(idx, m.start) });
+    }
+    parts.push({ kind: 'math', value: m.math, display: m.display });
+    idx = m.end;
+  }
+  if (idx < src.length) {
+    parts.push({ kind: 'text', value: src.slice(idx) });
+  }
+  return parts;
 }
 
 interface Props {
@@ -73,15 +90,19 @@ const MathJaxPreview: React.FC<Props> = ({ source }) => {
         return;
       }
       try {
-        const seg = extractFirstMath(trimmed);
-        if (!seg) {
+        const parts = tokenize(source);
+        if (parts.length === 0) {
           container.textContent = 'No math delimiters found. Use \\(...\\) or $$ ... $$';
-          rafRef.current = null;
-          return;
+        } else {
+          for (const p of parts) {
+            if (p.kind === 'text') {
+              container.appendChild(document.createTextNode(p.value));
+            } else {
+              const node = doc.convert(p.value, { display: p.display });
+              container.appendChild(node as unknown as Node);
+            }
+          }
         }
-        // IMPORTANT: do not sanitize TeX before convert()
-        const node = doc.convert(seg.math, { display: seg.display });
-        container.appendChild(node as unknown as Node);
       } catch (e) {
         container.textContent = 'TeX error: ' + (e as Error).message;
       } finally {
@@ -107,3 +128,4 @@ const MathJaxPreview: React.FC<Props> = ({ source }) => {
 };
 
 export default MathJaxPreview;
+
