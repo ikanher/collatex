@@ -30,12 +30,15 @@ const EditorPage: React.FC = () => {
 
   const handleDownloadPdf = React.useCallback(async () => {
     if (compiling) return;
-    const src = texStr || '%% empty document';
+    const src = texStr; // raw user text; compiler will wrap it if needed
     setCompiling(true);
     setCompileLog('');
     try {
       const { pdf, log } = await compilePdfTeX(src);
       setCompileLog(log ?? '');
+      if (!pdf || (pdf as Uint8Array).length === 0) {
+        throw new Error('The generated PDF is empty. Check the LaTeX log below.');
+      }
       const blob = new Blob([pdf], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -45,6 +48,7 @@ const EditorPage: React.FC = () => {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      console.log('pdf bytes', pdf.length);
     } catch (e) {
       setCompileLog(String(e));
     } finally {

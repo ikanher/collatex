@@ -37,17 +37,41 @@ function loadPdfTeX(): Promise<any> {
   return enginePromise;
 }
 
+export function toLatexDocument(src: string): string {
+  const s = src.trim();
+  // If user already provided a LaTeX doc, use it verbatim.
+  if (/\\documentclass\b/.test(s) || /\\begin\{document\}/.test(s)) return src;
+  // Otherwise, wrap as a minimal article with AMS packages.
+  return [
+    '\\documentclass[11pt]{article}',
+    '\\usepackage[T1]{fontenc}',
+    '\\usepackage[utf8]{inputenc}',
+    '\\usepackage{amsmath,amssymb}',
+    '\\usepackage{lmodern}',
+    '\\pagestyle{empty}',
+    '\\begin{document}',
+    s.length ? s : '% empty body',
+    '\\end{document}',
+  ].join('\n');
+}
+
 export async function compilePdfTeX(
   mainTex: string,
   files: Record<string, string> = {},
 ): Promise<CompileResult> {
   const engine = await loadPdfTeX();
   engine.flushCache?.();
-  engine.writeMemFSFile('main.tex', mainTex);
+  // Ensure full LaTeX document
+  const doc = toLatexDocument(mainTex);
+  engine.writeMemFSFile('main.tex', doc);
   for (const [name, content] of Object.entries(files)) engine.writeMemFSFile(name, content);
   engine.setEngineMainFile('main.tex');
   const r = await engine.compileLaTeX();
-  if (!r || !r.pdf) throw new Error('Compilation failed: no PDF produced');
+  if (!r || !r.pdf) throw new Error('Compilation failed: no PDF array returned');
+  if (!('length' in r.pdf) || r.pdf.length === 0) {
+    const msg = r.log && r.log.trim() ? r.log : 'Empty PDF output (likely missing LaTeX preamble).';
+    throw new Error(msg);
+  }
   return { pdf: r.pdf, log: r.log ?? '' };
 }
 
