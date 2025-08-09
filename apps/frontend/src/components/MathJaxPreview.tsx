@@ -5,54 +5,93 @@ interface Props {
   containerRefExternal?: React.RefObject<HTMLDivElement>;
 }
 
-// Lookbehind-free tokenizer for $$...$$, \[...\], \(...\), $...$
+// Two-stage tokenizer for display and inline math
 function tokenize(src: string): Array<{ kind: 'text' | 'math'; value: string; display?: boolean }> {
-  const parts: Array<{ kind: 'text' | 'math'; value: string; display?: boolean }> = [];
-  // Build a merged match list without using lookbehind
-  type M = { start: number; end: number; math: string; display: boolean };
-  const matches: M[] = [];
+  type Span = { start: number; end: number; math: string; display: boolean };
+  const spans: Span[] = [];
 
-  function pushAll(re: RegExp, display: boolean) {
+  // Helper to push regex matches as spans
+  function pushMatches(re: RegExp, display: boolean) {
     re.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = re.exec(src)) !== null) {
-      matches.push({ start: m.index, end: m.index + m[0].length, math: m[1], display });
+      spans.push({ start: m.index, end: m.index + m[0].length, math: m[1], display });
     }
   }
 
-  // Order matters: handle display before inline
-  pushAll(/\$\$([\s\S]*?)\$\$/g, true);           // $$...$$
-  pushAll(/\\\[([\s\S]*?)\\\]/g, true);           // \[...\]
-  pushAll(/\\\(([\s\S]*?)\\\)/g, false);          // \(...\)
+  // 1) Collect display spans first
+  pushMatches(/\$\$([\s\S]*?)\$\$/g, true);     // $$ ... $$
+  pushMatches(/\\\[([\s\S]*?)\\\]/g, true);     // \[ ... \]
 
-  // Inline $...$ without lookbehind: manually exclude $$...$$ by post-filtering
-  // We match $...$ and later drop those that are part of $$...$$ matches
-  const inlineMatches: M[] = [];
+  // Sort & merge overlapping display spans (rare but safe)
+  spans.sort((a, b) => a.start - b.start);
+  const displaySpans: Span[] = [];
+  for (const s of spans) {
+    if (!s.display) continue;
+    const last = displaySpans[displaySpans.length - 1];
+    if (last && s.start <= last.end) {
+      // merge
+      last.end = Math.max(last.end, s.end);
+      last.math = ''; // math content irrelevant for overlap bookkeeping
+    } else {
+      displaySpans.push({ ...s });
+    }
+  }
+
+  // Utility: is [a,b) fully inside any display span?
+  const insideDisplay = (a: number, b: number) =>
+    displaySpans.some(d => a >= d.start && b <= d.end);
+
+  // 2) Add \(...\) inline spans (independent of $$ and \[ \])
+  const inlineParens: Span[] = [];
+  {
+    const re = /\\\(([\s\S]*?)\\\)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src)) !== null) {
+      const start = m.index, end = start + m[0].length;
+      if (!insideDisplay(start, end)) {
+        inlineParens.push({ start, end, math: m[1], display: false });
+      }
+    }
+  }
+
+  // 3) Add safe $...$ inline spans (no lookbehind; check neighbors in JS)
+  const inlineDollar: Span[] = [];
   {
     const re = /\$([^$\n]+)\$/g;
-    re.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = re.exec(src)) !== null) {
-      inlineMatches.push({ start: m.index, end: m.index + m[0].length, math: m[1], display: false });
+      const start = m.index;
+      const end = start + m[0].length;
+      const prev = start > 0 ? src[start - 1] : '';
+      const next = end < src.length ? src[end] : '';
+      const escaped = start > 0 && src[start - 1] === '\\';
+      // guard: not escaped, not $$ on either side, and not inside display
+      if (!escaped && prev !== '$' && next !== '$' && !insideDisplay(start, end)) {
+        inlineDollar.push({ start, end, math: m[1], display: false });
+      }
     }
   }
-  // Remove inline hits that are inside display $$...$$ blocks we already captured
-  function isInsideAny(start: number, end: number, blocks: M[]): boolean {
-    return blocks.some(b => start >= b.start && end <= b.end);
-  }
-  const displayBlocks = matches.filter(m => m.display);
-  for (const im of inlineMatches) {
-    if (!isInsideAny(im.start, im.end, displayBlocks)) matches.push(im);
+
+  // Combine all spans
+  const all: Span[] = [...displaySpans, ...inlineParens, ...inlineDollar];
+  // Remove duplicates/overlaps by picking earliest non-overlapping
+  all.sort((a, b) => a.start - b.start || (a.end - a.start) - (b.end - b.start));
+  const picked: Span[] = [];
+  let cursor = 0;
+  for (const s of all) {
+    const last = picked[picked.length - 1];
+    if (!last || s.start >= last.end) picked.push(s);
   }
 
-  matches.sort((a, b) => a.start - b.start);
-  let idx = 0;
-  for (const m of matches) {
-    if (m.start > idx) parts.push({ kind: 'text', value: src.slice(idx, m.start) });
-    parts.push({ kind: 'math', value: m.math, display: m.display });
-    idx = m.end;
+  // Emit parts
+  const parts: Array<{ kind: 'text' | 'math'; value: string; display?: boolean }> = [];
+  for (const s of picked) {
+    if (s.start > cursor) parts.push({ kind: 'text', value: src.slice(cursor, s.start) });
+    parts.push({ kind: 'math', value: s.math, display: s.display });
+    cursor = s.end;
   }
-  if (idx < src.length) parts.push({ kind: 'text', value: src.slice(idx) });
+  if (cursor < src.length) parts.push({ kind: 'text', value: src.slice(cursor) });
   return parts;
 }
 
