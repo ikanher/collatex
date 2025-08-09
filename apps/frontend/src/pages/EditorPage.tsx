@@ -7,6 +7,8 @@ import { USE_SERVER_COMPILE } from '../config';
 import { logDebug } from '../debug';
 import { compilePdfTeX } from '../lib/latexWasm';
 
+const SEED_HINT = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
+
 const EditorPage: React.FC = () => {
   const { token, gatewayWS } = useProject();
   const [texStr, setTexStr] = useState<string>('');
@@ -121,7 +123,7 @@ const EditorPage: React.FC = () => {
           </div>
         </div>
         <div className="w-1/2 h-full min-h-0 p-2">
-          <MathJaxPreview source={texStr} />
+          <MathJaxPreview source={texStr.trim() ? texStr : SEED_HINT} />
         </div>
       </div>
       <footer className="px-4 py-2 border-t text-xs text-gray-500 flex items-center justify-between">
