@@ -41,6 +41,10 @@ const MathJaxPreview: React.FC<Props> = ({ source, containerRefExternal }) => {
       const svg = new SVG({ fontCache: 'none' });
       // Bind to window.document; we'll scope findMath/typeset to our container
       const html = mathjax.document(window.document, { InputJax: tex, OutputJax: svg });
+      // In dev, log available methods once to aid debugging
+      if (import.meta.env.DEV) {
+        console.debug('[debug] mj methods:', Object.keys(html));
+      }
       if (!cancelled) {
         mjRef.current = { html, adaptor };
         setReady(true);
@@ -73,7 +77,7 @@ const MathJaxPreview: React.FC<Props> = ({ source, containerRefExternal }) => {
     }
 
     // Debounce a bit to avoid hammering MathJax while typing
-    timerRef.current = window.setTimeout(async () => {
+    timerRef.current = window.setTimeout(() => {
       // If another render started, drop this one
       if (v !== versionRef.current) return;
       const mj = mjRef.current;
@@ -84,9 +88,16 @@ const MathJaxPreview: React.FC<Props> = ({ source, containerRefExternal }) => {
       // Write text content (no HTML), then typeset only this container
       container.textContent = source;
       try {
-        mj.html.clear();
-        mj.html.findMath({ elements: [container] });
-        await mj.html.typesetPromise([container]);
+        const { html } = mj; // mj.html is a MathJax HTMLMathDocument
+        // Clear any prior MathJax state
+        html.clear();
+        // Scope math discovery to our container
+        html.findMath({ elements: [container] });
+        // v3 pipeline (synchronous in this build):
+        html.compile(); // parse TeX into internal MathJax structures
+        html.getMetrics(); // compute sizes based on container
+        html.typeset(); // generate SVG/CHTML
+        html.updateDocument(); // push results into the DOM
       } catch (e) {
         container.textContent = 'TeX error: ' + (e as Error).message;
       }
