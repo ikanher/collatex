@@ -1,7 +1,7 @@
 import { render, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
 
@@ -52,8 +52,15 @@ import EditorPage from '../src/pages/EditorPage';
 
 // Tests
 describe('EditorPage websocket', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ locked: false }) }),
+    );
+  });
   afterEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
     cleanup();
   });
 

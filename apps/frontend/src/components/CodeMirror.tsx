@@ -15,6 +15,7 @@ interface Props {
   onReady?: (text: Y.Text) => void;
   onChange?: (text: Y.Text) => void;
   onDocChange?: (value: string) => void;
+  readOnly?: boolean;
 }
 
 const fillParent = EditorView.theme({
@@ -24,10 +25,11 @@ const fillParent = EditorView.theme({
 
 const SEED_HINT = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
 
-const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDocChange }) => {
+const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDocChange, readOnly = false }) => {
   const ref = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView>();
   const ydocRef = useRef<Y.Doc>(new Y.Doc());
+  const editableExt = React.useMemo(() => EditorView.editable.of(!readOnly), [readOnly]);
 
   // Stable refs for callbacks to avoid re-initializing the editor on prop changes
   const onReadyRef = useRef<typeof onReady>();
@@ -65,11 +67,12 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
         keymap.of(defaultKeymap),
         latex(),
         yCollab(ytext, awareness),
+        editableExt,
         placeholder(SEED_HINT),
         EditorView.theme({
           '.cm-placeholder': { color: '#9ca3af' },
         }),
-        EditorView.updateListener.of(update => {
+        EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             const val = update.state.doc.toString();
             console.debug('[debug] CM update docChanged len=', val.length);
@@ -91,8 +94,8 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
       }
       logDebug('CodeMirror destroyed');
     };
-    // IMPORTANT: only re-run when token or gatewayWS change
-  }, [token, gatewayWS]);
+    // IMPORTANT: only re-run when token, gatewayWS, or readOnly change
+  }, [token, gatewayWS, editableExt]);
 
   return <div ref={ref} className="h-full min-h-0" />;
 };

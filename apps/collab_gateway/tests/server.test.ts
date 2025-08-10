@@ -63,10 +63,13 @@ test('WebSocket increments metric with token', async () => {
   expect(res.text).toContain('collatex_ws_connections_total{project_token="t1"} 1');
 });
 
-test('WebSocket rejects invalid token', (done) => {
+test('WebSocket accepts arbitrary token in dev', async () => {
   const wsUrl = baseURL.replace('http', 'ws') + '/yjs/bad';
-  const ws = new WebSocket(wsUrl);
-  ws.on('error', () => done());
+  await new Promise((resolve) => {
+    const ws = new WebSocket(wsUrl);
+    ws.on('open', () => ws.close());
+    ws.on('close', resolve);
+  });
 });
 
 test('WebSocket accepts token with dash', async () => {

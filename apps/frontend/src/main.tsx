@@ -8,11 +8,11 @@ import { logDebug } from './debug';
 function AutoCreate() {
   React.useEffect(() => {
     (async () => {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_ORIGIN ?? 'http://localhost:8080'}/projects`,
-        { method: 'POST' },
-      );
+      const origin = import.meta.env.VITE_API_ORIGIN ?? 'http://localhost:8080';
+      const res = await fetch(`${origin}/projects`, { method: 'POST' });
       const data = await res.json();
+      // store ownerKey locally
+      localStorage.setItem(`collatex:ownerKey:${data.token}`, data.ownerKey);
       window.location.replace(`/p/${data.token}`);
     })().catch(() => {
       // minimal fallback: stay on page; you can add error UI if desired

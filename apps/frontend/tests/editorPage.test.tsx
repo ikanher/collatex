@@ -61,10 +61,15 @@ import EditorPage from '../src/pages/EditorPage';
 describe('EditorPage', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ locked: false }) }),
+    );
   });
   afterEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
     cleanup();
   });
 
