@@ -18,34 +18,20 @@ export REDIS_URL="redis://localhost:6379/0"
 export ALLOWED_ORIGINS="localhost:5173"
 export COLLATEX_ALLOWED_ORIGINS="http://localhost:5173"
 
-uv pip install -e ./backend/compile-service[dev]
-
 npm --prefix apps/collab_gateway install
 npm --prefix apps/frontend install
 
 cleanup() {
-  kill $APP_PID $WORKER_PID $GATEWAY_PID $FRONT_PID 2>/dev/null || true
+  kill $GATEWAY_PID $FRONT_PID 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
-(
-  cd backend/compile-service && \
-  PYTHONPATH="$(pwd)/src" COLLATEX_STATE=redis uv run uvicorn compile_service.app.main:app --reload --port 8080
-) &
-APP_PID=$!
-(
-  cd backend/compile-service && \
-  PYTHONPATH="$(pwd)/src" COLLATEX_STATE=redis uv run celery -A collatex.tasks worker -Q compile -l INFO
-) &
-WORKER_PID=$!
 npm --prefix apps/collab_gateway run dev &
 GATEWAY_PID=$!
 npm --prefix apps/frontend run dev &
 FRONT_PID=$!
 
-echo "Backend: http://localhost:8080"
 echo "Gateway: ws://localhost:1234"
 echo "Frontend: http://localhost:5173"
-echo "API token: changeme"
 
 wait

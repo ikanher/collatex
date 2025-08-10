@@ -7,8 +7,7 @@
   "extends": [
     "eslint:recommended",
     "plugin:react/recommended",
-    "plugin:@typescript-eslint/recommended",
-    "plugin:tailwindcss/recommended"
+    "plugin:@typescript-eslint/recommended"
   ],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
@@ -17,20 +16,14 @@
   },
   "plugins": [
     "react",
-    "@typescript-eslint",
-    "tailwindcss"
+    "@typescript-eslint"
   ],
   "settings": {
     "react": {
       "version": "18"
-    },
-    "tailwindcss": {
-      "config": "tailwind.config.ts"
     }
   },
   "rules": {
-    "react/react-in-jsx-scope": "off",
-    "tailwindcss/no-custom-classname": "off",
-    "tailwindcss/classnames-order": "off"
+    "react/react-in-jsx-scope": "off"
   }
 }

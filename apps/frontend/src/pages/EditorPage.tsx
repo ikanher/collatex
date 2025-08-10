@@ -5,42 +5,12 @@ import jsPDF from 'jspdf';
 import CodeMirror from '../components/CodeMirror';
 import { useProject } from '../hooks/useProject';
 import MathJaxPreview from '../components/MathJaxPreview';
-import { API_URL, COMPILE_URL, USE_SERVER_COMPILE } from '../config';
+import { API_URL } from '../config';
 import { logDebug } from '../debug';
 import { compilePdfTeX } from '../lib/latexWasm';
+import { isServerCompileEnabled, compile as serverCompile } from '../lib/compileAdapter';
 
-async function compileViaServer(tex: string, token: string): Promise<Uint8Array> {
-  // Wrap in minimal LaTeX in the backend too; keep as-is here, backend expects raw TeX string.
-  const res = await fetch(`${COMPILE_URL}/compile?project=${encodeURIComponent(token)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tex }),
-  });
-  if (!res.ok) throw new Error(`compile enqueue failed: ${res.status}`);
-  const { jobId } = await res.json();
-  // Poll job status
-  const statusUrl = `${COMPILE_URL}/jobs/${encodeURIComponent(jobId)}?project=${encodeURIComponent(token)}`;
-  let tries = 0;
-  while (tries++ < 60) {
-    await new Promise(r => setTimeout(r, 500));
-    const s = await fetch(statusUrl);
-    if (!s.ok) continue;
-    const body = await s.json();
-    if (body.status === 'SUCCEEDED' && body.pdfUrl) {
-      const pdfRes = await fetch(`${COMPILE_URL}${body.pdfUrl}`);
-      if (!pdfRes.ok) throw new Error('pdf fetch failed');
-      const blob = await pdfRes.blob();
-      return new Uint8Array(await blob.arrayBuffer());
-    }
-    if (body.status === 'FAILED') {
-      const log = (body.log || '').slice(-4000);
-      throw new Error(`server compile failed:\n${log}`);
-    }
-  }
-  throw new Error('server compile timeout');
-}
-
-const SEED_HINT = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
+const SEED_HINT = 'Type TeX math like \\(' + 'e^{i\\pi}+1=0' + '\\) or $$\\int_0^1 x^2\\,dx$$';
 
 const EditorPage: React.FC = () => {
   const { token, gatewayWS } = useProject();
@@ -120,9 +90,14 @@ const EditorPage: React.FC = () => {
         console.warn('WASM compile failed, falling back to client render:', e);
       }
       if (!pdfBytes) {
-        if (USE_SERVER_COMPILE) {
-          pdfBytes = await compileViaServer(texStr, token);
-        } else {
+        if (isServerCompileEnabled) {
+          const res = await serverCompile();
+          if (res.ok && res.pdf) {
+            pdfBytes = res.pdf;
+            if (res.log) setCompileLog(res.log);
+          }
+        }
+        if (!pdfBytes) {
           const node = previewRef.current;
           if (!node) throw new Error('preview missing');
           const canvas = await html2canvas(node, { scale: 2 });
@@ -208,8 +183,11 @@ const EditorPage: React.FC = () => {
             disabled={compiling}
             aria-busy={compiling}
           >
-            {compiling ? 'Compiling…' : 'Download PDF'}
+            {compiling ? 'Compiling…' : isServerCompileEnabled ? 'Download PDF' : 'Export PDF'}
           </button>
+          {!isServerCompileEnabled && (
+            <span className="text-xs opacity-80">Server compile disabled; using live preview.</span>
+          )}
           {compileLog && (
             <details className="ml-2 text-xs text-gray-200">
               <summary>Show LaTeX log</summary>
@@ -232,7 +210,7 @@ const EditorPage: React.FC = () => {
             />
           </div>
         </section>
-        <aside className="flex-1 h-full min-h-0 rounded-md border p-2 overflow-auto">
+        <aside className="flex-1 h-full min-h-0 rounded-md border p-2 overflow-auto" ref={previewRef}>
           <MathJaxPreview source={texStr.trim() ? texStr : SEED_HINT} />
         </aside>
       </main>

@@ -9,7 +9,4 @@ const env: Record<string, string> =
 export const WS_URL = env.VITE_WS_URL ?? 'ws://localhost:1234';
 // Gateway (projects/lock/unlock) on 1234:
 export const API_URL = env.VITE_API_ORIGIN ?? 'http://localhost:1234';
-// Compile service on 8080:
-export const COMPILE_URL = env.VITE_COMPILE_ORIGIN ?? 'http://localhost:8080';
 export const DEBUG = env.VITE_DEBUG ? env.VITE_DEBUG !== 'false' : true;
-export const USE_SERVER_COMPILE = env.VITE_USE_SERVER_COMPILE === 'true';

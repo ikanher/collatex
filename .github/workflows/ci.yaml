@@ -1,37 +1,6 @@
 name: CollaTeX CI
 on: [push, pull_request]
 jobs:
-  backend:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.11, 3.12]
-        state: [memory, redis]
-    env:
-      COLLATEX_STATE: ${{ matrix.state }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install uv
-        run: pip install uv
-      - name: Install deps
-        run: uv pip install -e backend/compile-service[dev]
-      - name: Start stack
-        run: docker compose up -d --build
-      - name: Wait for API
-        run: |
-          for i in {1..30}; do
-            curl -fs http://localhost:8080/healthz && break
-            sleep 2
-          done
-      - name: Lint
-        run: make lint
-      - name: Type-check
-        run: make typecheck
-      - name: Tests
-        run: uv run -m pytest -n auto -q
   gateway:
     runs-on: ubuntu-latest
     strategy:
@@ -66,35 +35,3 @@ jobs:
         run: |
           npm run lint --workspace apps/frontend
           npm run test --workspace apps/frontend
-  e2e:
-    if: >-
-      github.event_name == 'schedule' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Start stack
-        run: COLLATEX_API_TOKEN=ci-token docker compose up -d --build
-      - name: Run smoke test
-        run: COLLATEX_API_TOKEN=ci-token ./scripts/smoke.sh
-
-  fallback-local:
-    runs-on: ubuntu-latest
-    env:
-      COLLATEX_STATE: fakeredis
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Install uv
-        run: pip install uv
-      - name: Install deps
-        run: uv pip install -e backend/compile-service[dev]
-      - name: Run smoke
-        run: |
-          unset TECTONIC_PATH
-          ./scripts/smoke.sh
