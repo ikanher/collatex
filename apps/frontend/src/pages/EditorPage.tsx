@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import CodeMirror from '../components/CodeMirror';
 import { useProject } from '../hooks/useProject';
 import MathJaxPreview from '../components/MathJaxPreview';
@@ -44,6 +46,7 @@ const EditorPage: React.FC = () => {
   const { token, gatewayWS } = useProject();
   const [texStr, setTexStr] = useState<string>('');
   const unsubRef = useRef<() => void>();
+  const previewRef = useRef<HTMLDivElement>(null);
   const [toast, setToast] = useState<string>('');
   const [compiling, setCompiling] = React.useState(false);
   const [compileLog, setCompileLog] = React.useState<string>('');
@@ -114,11 +117,22 @@ const EditorPage: React.FC = () => {
         if (pdf && pdf.length > 0) pdfBytes = pdf;
       } catch (e) {
         // WASM missing or failed — fall back silently
-        console.warn('WASM compile failed, falling back to server:', e);
+        console.warn('WASM compile failed, falling back to client render:', e);
       }
       if (!pdfBytes) {
-        // Fall back to server compile
-        pdfBytes = await compileViaServer(texStr, token);
+        if (USE_SERVER_COMPILE) {
+          pdfBytes = await compileViaServer(texStr, token);
+        } else {
+          const node = previewRef.current;
+          if (!node) throw new Error('preview missing');
+          const canvas = await html2canvas(node, { scale: 2 });
+          const imgData = canvas.toDataURL('image/png');
+          const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+          const width = pdf.internal.pageSize.getWidth();
+          const height = (canvas.height * width) / canvas.width;
+          pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+          pdfBytes = new Uint8Array(pdf.output('arraybuffer'));
+        }
       }
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
@@ -134,7 +148,7 @@ const EditorPage: React.FC = () => {
     } finally {
       setCompiling(false);
     }
-  }, [texStr, token, compiling]);
+  }, [texStr, token, compiling, previewRef]);
 
   const handleReady = useCallback(
     (text: Y.Text) => {
@@ -237,7 +251,10 @@ const EditorPage: React.FC = () => {
           </div>
         </div>
         <div className="w-1/2 h-full min-h-0 p-2">
-          <MathJaxPreview source={texStr.trim() ? texStr : SEED_HINT} />
+          <MathJaxPreview
+            source={texStr.trim() ? texStr : SEED_HINT}
+            containerRefExternal={previewRef}
+          />
         </div>
       </div>
       <footer className="px-4 py-2 border-t text-xs text-gray-500 flex items-center justify-between">
