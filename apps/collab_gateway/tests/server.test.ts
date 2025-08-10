@@ -82,3 +82,17 @@ test('WebSocket accepts token with dash', async () => {
     ws.on('close', resolve);
   });
 });
+
+test('owner can lock and unlock project', async () => {
+  const createRes = await request(baseURL).post('/projects');
+  expect(createRes.status).toBe(200);
+  const { token, ownerKey } = createRes.body;
+  const lockRes = await request(baseURL)
+    .post(`/projects/${token}/lock`)
+    .send({ ownerKey });
+  expect(lockRes.status).toBe(200);
+  const unlockRes = await request(baseURL)
+    .post(`/projects/${token}/unlock`)
+    .send({ ownerKey });
+  expect(unlockRes.status).toBe(200);
+});

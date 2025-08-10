@@ -117,4 +117,21 @@ describe('EditorPage', () => {
     second.unmount();
     errorSpy.mockRestore();
   });
+
+  it('hides lock controls for non-owner', async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => ({ locked: true }),
+    });
+    const { queryByText, findByText } = render(
+      <MemoryRouter initialEntries={['/p/token']}>
+        <Routes>
+          <Route path="/p/:token" element={<EditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await findByText('Locked');
+    expect(queryByText('Unlock')).toBeNull();
+    expect(queryByText('Lock')).toBeNull();
+  });
 });
