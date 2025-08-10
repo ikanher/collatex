@@ -5,6 +5,10 @@ const apiOrigin = process.env.VITE_API_ORIGIN || 'http://localhost:1234';
 const compileOrigin = process.env.VITE_COMPILE_ORIGIN || 'http://localhost:8080';
 const wsOrigin = process.env.VITE_WS_URL || 'ws://localhost:1234';
 
+const connectSrc = Array.from(
+  new Set(["'self'", apiOrigin, compileOrigin, wsOrigin]),
+).join(' ');
+
 export default defineConfig({
   plugins: [react()],
   define: {
@@ -20,7 +24,7 @@ export default defineConfig({
         "style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data:; " +
         "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-        `connect-src 'self' ${apiOrigin} ${compileOrigin} ${wsOrigin}`,
+        `connect-src ${connectSrc}`,
     },
   },
 });
