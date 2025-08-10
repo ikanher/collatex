@@ -72,6 +72,7 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
         placeholder(SEED_HINT),
         EditorView.theme({
           '.cm-placeholder': { color: '#9ca3af' },
+          '.cm-editor': { paddingTop: '0px' },
         }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {

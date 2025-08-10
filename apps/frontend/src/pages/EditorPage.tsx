@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import AppShell from '../components/AppShell';
 import CodeMirror from '../components/CodeMirror';
 import { useProject } from '../hooks/useProject';
 import MathJaxPreview from '../components/MathJaxPreview';
@@ -178,54 +177,28 @@ const EditorPage: React.FC = () => {
   }, []);
 
   return (
-    <AppShell>
-      <div className="h-full flex flex-col">
-      <header className="flex items-center justify-between px-4 py-2 border-b bg-white/70 backdrop-blur">
-        <div className="flex items-center gap-2">
-          <div className="text-lg font-semibold tracking-tight">CollaTeX</div>
-          <div className="text-xs text-gray-500">Realtime LaTeX + MathJax</div>
+    <div className="min-h-screen flex flex-col bg-white">
+      <header className="flex items-center justify-between px-4 py-2 border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+        <div className="flex items-baseline gap-3">
+          <span className="text-2xl font-semibold tracking-tight">CollaTeX</span>
+          <span className="text-sm text-gray-500">Realtime LaTeX + MathJax</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            {ownerKey ? (
-              <>
-                <span
-                  className={`text-xs px-2 py-0.5 rounded ${locked ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}
-                >
-                  {locked ? 'Locked' : 'Unlocked'}
-                </span>
-                <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={refreshState}>
-                  Refresh
-                </button>
-                {locked ? (
-                  <button
-                    className="px-3 py-1.5 rounded-lg border hover:bg-gray-50"
-                    onClick={unlockProject}
-                  >
-                    Unlock
-                  </button>
-                ) : (
-                  <button
-                    className="px-3 py-1.5 rounded-lg border hover:bg-gray-50"
-                    onClick={lockProject}
-                  >
-                    Lock
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                {locked && (
-                  <span className="text-xs px-2 py-0.5 rounded bg-rose-100 text-rose-700">
-                    Locked
-                  </span>
-                )}
-                <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={refreshState}>
-                  Refresh
-                </button>
-              </>
-            )}
-          </div>
+        <div className="flex items-center gap-2 flex-nowrap">
+          <span className={`text-xs px-2 py-0.5 rounded ${locked ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+            {locked ? 'Locked' : 'Unlocked'}
+          </span>
+          <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={refreshState}>
+            Refresh
+          </button>
+          {ownerKey && (locked ? (
+            <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={unlockProject}>
+              Unlock
+            </button>
+          ) : (
+            <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={lockProject}>
+              Lock
+            </button>
+          ))}
           <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={handleShare}>
             Share
           </button>
@@ -233,6 +206,7 @@ const EditorPage: React.FC = () => {
             className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
             onClick={handleDownloadPdf}
             disabled={compiling}
+            aria-busy={compiling}
           >
             {compiling ? 'Compiling…' : 'Download PDF'}
           </button>
@@ -244,45 +218,38 @@ const EditorPage: React.FC = () => {
           )}
         </div>
       </header>
-      <div className="flex-1 min-h-0 flex">
-        <div className="w-1/2 h-full min-h-0 flex flex-col border-r">
-          {USE_SERVER_COMPILE && (
-            <div className="p-2 border-b flex items-center gap-2">
-              {/* Future toolbar area */}
-            </div>
-          )}
+
+      <main className="flex-1 min-h-0 flex">
+        <section className="w-1/2 h-full min-h-0 flex flex-col border-r">
           <div className="flex-1 min-h-0 p-2">
             <CodeMirror
               token={token}
               gatewayWS={gatewayWS}
               onReady={handleReady}
-              onChange={text => {
-                // Optional extra: log Yjs local changes if they do arrive
-                logDebug('onChange (Yjs path) len=', text.toString().length);
-              }}
+              onChange={text => logDebug('onChange (Yjs path) len=', text.toString().length)}
               onDocChange={handleDocChange}
               readOnly={locked}
             />
           </div>
-        </div>
-        <div className="w-1/2 h-full min-h-0 p-2">
-          <MathJaxPreview
-            source={texStr.trim() ? texStr : SEED_HINT}
-            containerRefExternal={previewRef}
-          />
-        </div>
-      </div>
+        </section>
+        <aside className="w-1/2 h-full min-h-0 p-2">
+          <MathJaxPreview source={texStr.trim() ? texStr : SEED_HINT} />
+        </aside>
+      </main>
+
       <footer className="px-4 py-2 border-t text-xs text-gray-500 flex items-center justify-between">
         <span>© {new Date().getFullYear()} CollaTeX</span>
-        <span><a className="underline hover:no-underline" href="https://github.com/ikanher/collatex" target="_blank" rel="noreferrer">GitHub</a></span>
+        <a className="underline hover:no-underline" href="https://github.com/ikanher/collatex" target="_blank" rel="noreferrer">
+          GitHub
+        </a>
       </footer>
+
       {toast && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white text-sm px-3 py-1.5 rounded-md shadow">
           {toast}
         </div>
       )}
     </div>
-  </AppShell>
   );
 };
 

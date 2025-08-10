@@ -1,0 +1,8 @@
+@import './styles/globals.css';
+
+html, body, #root { height: 100%; }
+/* Reset any default margins to avoid top whitespace in some UA combos */
+body { margin: 0; }
+/* Keep MathJax inline spacing sane */
+mjx-container[jax="SVG"] { margin: 0 0.25rem; }
+mjx-container[jax="SVG"] svg { overflow: visible; }
