@@ -7,8 +7,8 @@
   ],
   "scripts": {
     "test": "npm run -s test:frontend && npm run -s test:gateway",
-    "test:frontend": "cross-env CI=1 vitest run --reporter=basic",
-    "test:gateway": "cross-env CI=1 jest --watchAll=false --runInBand --colors",
+    "test:frontend": "npm run test --workspace apps/frontend",
+    "test:gateway": "npm run test --workspace apps/collab_gateway",
     "test:ci": "npm run -s test"
   },
   "devDependencies": {
