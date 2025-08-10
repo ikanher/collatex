@@ -71,7 +71,7 @@ export function toLatexDocument(src: string): string {
 }
 
 // compile via browser PdfTeX if available
-export async function tryCompilePdfWasm(source: string): Promise<CompileResult> {
+export async function compilePdfTeX(source: string): Promise<CompileResult> {
   const engine = await loadPdfTeX();
   engine.flushCache?.();
   const doc = toLatexDocument(source);
@@ -79,19 +79,5 @@ export async function tryCompilePdfWasm(source: string): Promise<CompileResult> 
   engine.setEngineMainFile('main.tex');
   const r = await engine.compileLaTeX();
   return { pdf: r?.pdf ?? new Uint8Array(), log: r?.log };
-}
-
-// fallback: server compile endpoint
-export async function compilePdfServer(source: string, apiOrigin: string): Promise<Uint8Array> {
-  const doc = toLatexDocument(source);
-  const res = await fetch(`${apiOrigin}/compile`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tex: doc }),
-  });
-  if (!res.ok) throw new Error(`server compile failed ${res.status}`);
-  const blob = await res.blob();
-  const buf = new Uint8Array(await blob.arrayBuffer());
-  return buf;
 }
 
