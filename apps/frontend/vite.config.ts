@@ -1,3 +1,4 @@
+import path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -7,6 +8,7 @@ const wsOrigin = process.env.VITE_WS_URL || 'ws://localhost:1234';
 
 export default defineConfig({
   plugins: [react()],
+  resolve: { alias: { '@': path.resolve(__dirname, './src') } },
   define: {
     'process.env.VITE_API_ORIGIN': JSON.stringify(apiOrigin),
     'process.env.VITE_COMPILE_ORIGIN': JSON.stringify(compileOrigin),
@@ -23,4 +25,3 @@ export default defineConfig({
     },
   },
 });
-
