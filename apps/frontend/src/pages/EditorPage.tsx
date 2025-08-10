@@ -3,9 +3,40 @@ import * as Y from 'yjs';
 import CodeMirror from '../components/CodeMirror';
 import { useProject } from '../hooks/useProject';
 import MathJaxPreview from '../components/MathJaxPreview';
-import { API_URL, USE_SERVER_COMPILE } from '../config';
+import { API_URL, COMPILE_URL, USE_SERVER_COMPILE } from '../config';
 import { logDebug } from '../debug';
-import { tryCompilePdfWasm, compilePdfServer } from '../lib/latexWasm';
+import { compilePdfTeX } from '../lib/latexWasm';
+
+async function compileViaServer(tex: string, token: string): Promise<Uint8Array> {
+  // Wrap in minimal LaTeX in the backend too; keep as-is here, backend expects raw TeX string.
+  const res = await fetch(`${COMPILE_URL}/compile?project=${encodeURIComponent(token)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tex }),
+  });
+  if (!res.ok) throw new Error(`compile enqueue failed: ${res.status}`);
+  const { jobId } = await res.json();
+  // Poll job status
+  const statusUrl = `${COMPILE_URL}/jobs/${encodeURIComponent(jobId)}?project=${encodeURIComponent(token)}`;
+  let tries = 0;
+  while (tries++ < 60) {
+    await new Promise(r => setTimeout(r, 500));
+    const s = await fetch(statusUrl);
+    if (!s.ok) continue;
+    const body = await s.json();
+    if (body.status === 'SUCCEEDED' && body.pdfUrl) {
+      const pdfRes = await fetch(`${COMPILE_URL}${body.pdfUrl}`);
+      if (!pdfRes.ok) throw new Error('pdf fetch failed');
+      const blob = await pdfRes.blob();
+      return new Uint8Array(await blob.arrayBuffer());
+    }
+    if (body.status === 'FAILED') {
+      const log = (body.log || '').slice(-4000);
+      throw new Error(`server compile failed:\n${log}`);
+    }
+  }
+  throw new Error('server compile timeout');
+}
 
 const SEED_HINT = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
 
@@ -71,26 +102,25 @@ const EditorPage: React.FC = () => {
   }, []);
 
   const handleDownloadPdf = React.useCallback(async () => {
+    if (compiling) return;
     setCompiling(true);
     setCompileLog('');
     try {
-      const r = await tryCompilePdfWasm(texStr);
-      if (r.pdf && r.pdf.length > 0) {
-        const blob = new Blob([r.pdf], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'collatex.pdf';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-        return;
+      // Try browser WASM first
+      let pdfBytes: Uint8Array | null = null;
+      try {
+        const { pdf, log } = await compilePdfTeX(texStr);
+        if (log) setCompileLog(log);
+        if (pdf && pdf.length > 0) pdfBytes = pdf;
+      } catch (e) {
+        // WASM missing or failed — fall back silently
+        console.warn('WASM compile failed, falling back to server:', e);
       }
-      if (r.log) setCompileLog(r.log);
-      const pdf = await compilePdfServer(texStr, API_URL);
-      if (!pdf || pdf.length === 0) throw new Error('Empty PDF from server');
-      const blob = new Blob([pdf], { type: 'application/pdf' });
+      if (!pdfBytes) {
+        // Fall back to server compile
+        pdfBytes = await compileViaServer(texStr, token);
+      }
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -104,7 +134,7 @@ const EditorPage: React.FC = () => {
     } finally {
       setCompiling(false);
     }
-  }, [texStr]);
+  }, [texStr, token, compiling]);
 
   const handleReady = useCallback(
     (text: Y.Text) => {
