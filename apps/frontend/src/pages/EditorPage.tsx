@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import AppShell from '../components/AppShell';
 import CodeMirror from '../components/CodeMirror';
 import { useProject } from '../hooks/useProject';
 import MathJaxPreview from '../components/MathJaxPreview';
@@ -177,7 +178,8 @@ const EditorPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="h-full flex flex-col">
+    <AppShell>
+      <div className="h-full flex flex-col">
       <header className="flex items-center justify-between px-4 py-2 border-b bg-white/70 backdrop-blur">
         <div className="flex items-center gap-2">
           <div className="text-lg font-semibold tracking-tight">CollaTeX</div>
@@ -280,6 +282,7 @@ const EditorPage: React.FC = () => {
         </div>
       )}
     </div>
+  </AppShell>
   );
 };
 
