@@ -63,6 +63,18 @@ Open `http://localhost:5173` and click **New Project**. Share the `/p/<token>`
 URL with a second tab to see real-time edits. The editor renders LaTeX directly
 in the browser via MathJax and exports PDFs client-side.
 
+### WASM LaTeX (Tectonic)
+
+To enable experimental Tectonic-on-WASM compilation:
+
+1. Run `./scripts/fetch-tectonic-assets.sh` to download the wasm engine and
+   local TeX bundle.
+2. Set `VITE_ENABLE_WASM_TEX=true` in your `.env`.
+
+When enabled, the **Export PDF** button compiles the current buffer inside a
+Web Worker and downloads a PDF without any server dependency. The initial
+bundle is lazy-loaded to keep the main app lightweight.
+
 ## Architecture
 ```mermaid
 graph TD
