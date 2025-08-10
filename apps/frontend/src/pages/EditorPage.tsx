@@ -7,7 +7,7 @@ import { useProject } from '../hooks/useProject';
 import MathJaxPreview from '../components/MathJaxPreview';
 import { API_URL } from '../config';
 import { logDebug } from '../debug';
-import { compilePdfTeX } from '../lib/latexWasm';
+import { compileLatexInWorker } from '../lib/tectonicClient';
 import { isServerCompileEnabled, compile as serverCompile } from '../lib/compileAdapter';
 
 const SEED_HINT = 'Type TeX math like \\(' + 'e^{i\\pi}+1=0' + '\\) or $$\\int_0^1 x^2\\,dx$$';
@@ -82,11 +82,12 @@ const EditorPage: React.FC = () => {
       // Try browser WASM first
       let pdfBytes: Uint8Array | null = null;
       try {
-        const { pdf, log } = await compilePdfTeX(texStr);
+        const { pdf, log } = await compileLatexInWorker({
+          getSource: () => texStr,
+        });
         if (log) setCompileLog(log);
         if (pdf && pdf.length > 0) pdfBytes = pdf;
       } catch (e) {
-        // WASM missing or failed — fall back silently
         console.warn('WASM compile failed, falling back to client render:', e);
       }
       if (!pdfBytes) {
