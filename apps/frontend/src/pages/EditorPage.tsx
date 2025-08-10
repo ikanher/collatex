@@ -177,7 +177,7 @@ const EditorPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="h-screen flex flex-col bg-white">
       <header className="flex items-center justify-between px-4 py-2 border-b border-indigo-700 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
         <div className="flex items-baseline gap-3">
           <span className="text-2xl font-semibold tracking-tight">CollaTeX</span>
@@ -203,7 +203,7 @@ const EditorPage: React.FC = () => {
             Share
           </button>
           <button
-            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+            className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-60"
             onClick={handleDownloadPdf}
             disabled={compiling}
             aria-busy={compiling}
@@ -219,8 +219,8 @@ const EditorPage: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 flex gap-2 p-2 bg-gray-50">
-        <section className="w-1/2 h-full min-h-0 flex flex-col rounded-md border">
+      <main className="flex-1 h-full min-h-0 flex gap-2 p-2 bg-gray-50">
+        <section className="flex-1 h-full min-h-0 flex flex-col rounded-md border">
           <div className="flex-1 min-h-0 p-2">
             <CodeMirror
               token={token}
@@ -232,7 +232,7 @@ const EditorPage: React.FC = () => {
             />
           </div>
         </section>
-        <aside className="w-1/2 h-full min-h-0 rounded-md border p-2 overflow-auto">
+        <aside className="flex-1 h-full min-h-0 rounded-md border p-2 overflow-auto">
           <MathJaxPreview source={texStr.trim() ? texStr : SEED_HINT} />
         </aside>
       </main>
