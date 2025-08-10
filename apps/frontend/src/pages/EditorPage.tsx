@@ -5,7 +5,7 @@ import { useProject } from '../hooks/useProject';
 import MathJaxPreview from '../components/MathJaxPreview';
 import { API_URL, USE_SERVER_COMPILE } from '../config';
 import { logDebug } from '../debug';
-import { compilePdfTeX } from '../lib/latexWasm';
+import { tryCompilePdfWasm, compilePdfServer } from '../lib/latexWasm';
 
 const SEED_HINT = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
 
@@ -54,7 +54,7 @@ const EditorPage: React.FC = () => {
     if (res.ok) {
       setLocked(false);
     } else {
-      const j = await res.json().catch(() => ({}));
+      await res.json().catch(() => ({}));
       // show 409 w/ message "active recently" to user
     }
   }
@@ -71,16 +71,25 @@ const EditorPage: React.FC = () => {
   }, []);
 
   const handleDownloadPdf = React.useCallback(async () => {
-    if (compiling) return;
-    const src = texStr; // raw user text; compiler will wrap it if needed
     setCompiling(true);
     setCompileLog('');
     try {
-      const { pdf, log } = await compilePdfTeX(src);
-      setCompileLog(log ?? '');
-      if (!pdf || (pdf as Uint8Array).length === 0) {
-        throw new Error('The generated PDF is empty. Check the LaTeX log below.');
+      const r = await tryCompilePdfWasm(texStr);
+      if (r.pdf && r.pdf.length > 0) {
+        const blob = new Blob([r.pdf], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'collatex.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        return;
       }
+      if (r.log) setCompileLog(r.log);
+      const pdf = await compilePdfServer(texStr, API_URL);
+      if (!pdf || pdf.length === 0) throw new Error('Empty PDF from server');
       const blob = new Blob([pdf], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -90,14 +99,12 @@ const EditorPage: React.FC = () => {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      console.log('pdf bytes', pdf.length);
     } catch (e) {
-      const msg = String(e);
-      setCompileLog(msg);
+      setCompileLog(String(e));
     } finally {
       setCompiling(false);
     }
-  }, [texStr, compiling]);
+  }, [texStr]);
 
   const handleReady = useCallback(
     (text: Y.Text) => {

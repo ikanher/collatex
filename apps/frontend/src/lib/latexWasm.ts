@@ -1,18 +1,24 @@
-export type CompileResult = { pdf: Uint8Array; log: string };
+export type CompileResult = { pdf: Uint8Array; log?: string };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let enginePromise: Promise<any> | null = null;
+let enginePromise: Promise<any> | null = null; // eslint-disable-line @typescript-eslint/no-explicit-any
 const ENGINE_URL = '/latexwasm/PdfTeXEngine.js';
 
-const SPECIALS = { '#': '\\#', '%': '\\%', '&': '\\&', '_': '\\_', '{': '\\{', '}': '\\}', '~': '\\textasciitilde{}', '^': '\\textasciicircum{}' };
+const SPECIALS: Record<string, string> = {
+  '#': '\\#',
+  '%': '\\%',
+  '&': '\\&',
+  '_': '\\_',
+  '{': '\\{',
+  '}': '\\}',
+  '~': '\\textasciitilde{}',
+  '^': '\\textasciicircum{}',
+};
 
-function escapeLatexOutsideMath(src: string): string {
-  // Split into math / non-math segments
+export function escapeLatexOutsideMath(src: string): string {
   const parts = src.split(/(\$\$.*?\$\$|\$.*?\$)/gs);
-  return parts.map((seg, i) => {
-    if (i % 2 === 1) return seg; // math region, leave intact
-    return seg.replace(/[#%&_{}~^]/g, m => SPECIALS[m as keyof typeof SPECIALS] || m);
-  }).join('');
+  return parts
+    .map((seg, i) => (i % 2 ? seg : seg.replace(/[#%&_{}~^]/g, m => SPECIALS[m] || m)))
+    .join('');
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,14 +30,13 @@ function loadPdfTeX(): Promise<any> {
     s.async = true;
     s.onload = async () => {
       try {
-        // Try common globals exposed by engine builds
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const g: any = window as any;
         const LaTeXEngine = g.LaTeXEngine || g.PdfTeXEngine || g.default || g.engine || null;
         if (!LaTeXEngine) {
           return reject(
             new Error(
-              `PdfTeXEngine loaded but global symbol not found. Check build docs for the correct global name.`,
+              'PdfTeXEngine loaded but global symbol not found. Check build docs for the correct global name.',
             ),
           );
         }
@@ -49,9 +54,9 @@ function loadPdfTeX(): Promise<any> {
 }
 
 export function toLatexDocument(src: string): string {
-  const s = src.trim();
+  const s = (src ?? '').trim();
   if (/\\documentclass\\b/.test(s) || /\\begin\\{document\\}/.test(s)) return src;
-  const safeBody = escapeLatexOutsideMath(s);
+  const body = escapeLatexOutsideMath(s);
   return [
     '\\documentclass[11pt]{article}',
     '\\usepackage[T1]{fontenc}',
@@ -60,33 +65,33 @@ export function toLatexDocument(src: string): string {
     '\\usepackage{lmodern}',
     '\\pagestyle{empty}',
     '\\begin{document}',
-    safeBody.length ? safeBody : '% empty body',
-    '\\end{document}'
+    body.length ? body : '% empty',
+    '\\end{document}',
   ].join('\\n');
 }
 
-export async function compilePdfTeX(
-  mainTex: string,
-  files: Record<string, string> = {},
-): Promise<CompileResult> {
+// compile via browser PdfTeX if available
+export async function tryCompilePdfWasm(source: string): Promise<CompileResult> {
   const engine = await loadPdfTeX();
   engine.flushCache?.();
-  const doc = toLatexDocument(mainTex);
+  const doc = toLatexDocument(source);
   engine.writeMemFSFile('main.tex', doc);
-  for (const [name, content] of Object.entries(files)) engine.writeMemFSFile(name, content);
   engine.setEngineMainFile('main.tex');
   const r = await engine.compileLaTeX();
-  if (!r || !r.pdf) throw new Error('Compilation failed: no PDF array returned');
-  if (!('length' in r.pdf) || r.pdf.length === 0) {
-    throw new Error(r.log && r.log.trim() ? `PDF empty. Log:\n${r.log}` : 'PDF empty and no log produced.');
-  }
-  return { pdf: r.pdf, log: r.log ?? '' };
+  return { pdf: r?.pdf ?? new Uint8Array(), log: r?.log };
 }
 
-// Optional: XeTeX entry (enable when you copy XeTeXEngine assets)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function compileXeTeX(mainTex: string, _files?: Record<string, string>): Promise<CompileResult> {
-  // Same pattern as PdfTeX but load '/latexwasm/XeTeXEngine.js' and new LaTeXEngine()
-  // If you need ICU data for proper CJK line breaks, mount it here with writeMemFSFile().
-  throw new Error('XeTeX path not wired yet');
+// fallback: server compile endpoint
+export async function compilePdfServer(source: string, apiOrigin: string): Promise<Uint8Array> {
+  const doc = toLatexDocument(source);
+  const res = await fetch(`${apiOrigin}/compile`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tex: doc }),
+  });
+  if (!res.ok) throw new Error(`server compile failed ${res.status}`);
+  const blob = await res.blob();
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  return buf;
 }
+

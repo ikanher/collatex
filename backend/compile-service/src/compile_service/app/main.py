@@ -4,15 +4,16 @@ import os
 import uuid
 from datetime import datetime
 import secrets
+import time
 from pathlib import Path
 from contextlib import asynccontextmanager
 
 import json
 import redis
 import redis.asyncio as aioredis
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional, Dict, Any, cast
 from prometheus_client import make_asgi_app
-from fastapi import FastAPI, HTTPException, Depends, Query, Request
+from fastapi import FastAPI, HTTPException, Depends, Query, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
@@ -45,6 +46,33 @@ def compile_tex_sync(tex_source: str, pdf_path: Path) -> None:
 
 FRONTEND_ORIGIN = os.getenv('FRONTEND_ORIGIN', 'http://localhost:5173')
 
+_mem: Dict[str, Dict[str, str]] = {}
+r: Optional[aioredis.Redis] = None
+
+
+def PK(t: str) -> str:
+    return f'collatex:project:{t}'
+
+
+async def get_meta(token: str) -> Optional[Dict[str, str]]:
+    if r:
+        meta = await cast(Any, r).hgetall(PK(token))
+        if not meta:
+            return None
+        return {k.decode() if isinstance(k, bytes) else k: v.decode() if isinstance(v, bytes) else v for k, v in meta.items()}
+    return _mem.get(token)
+
+
+async def set_meta(token: str, **fields: str) -> None:
+    if r:
+        await cast(Any, r).hset(PK(token), mapping=fields)
+    else:
+        _mem.setdefault(token, {}).update(fields)
+
+
+def now_ms() -> int:
+    return int(time.time() * 1000)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -53,6 +81,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     store_init(client)
     app.state.redis = client
     app.state.redis_async = aioredis.from_url(url)  # type: ignore[no-untyped-call]
+    global r
+    r = app.state.redis_async
     try:
         yield
     finally:
@@ -108,10 +138,55 @@ def healthz() -> dict[str, str]:
 @app.post('/projects', status_code=201)
 async def create_project_endpoint() -> JSONResponse:
     token = secrets.token_urlsafe(9)[:12]
+    owner_key = secrets.token_urlsafe(24)
     project = Project(token=token, created_at=datetime.utcnow())
     await run_in_threadpool(create_project, project)
+    await set_meta(token, ownerKey=owner_key, locked='0', lastActivityAt=str(now_ms()))
     headers = {'Location': f'{FRONTEND_ORIGIN}/p/{token}'}
-    return JSONResponse({'token': token}, status_code=201, headers=headers)
+    return JSONResponse({'token': token, 'ownerKey': owner_key}, status_code=201, headers=headers)
+
+
+@app.get('/projects/{token}')
+async def get_project_endpoint(token: str) -> dict[str, object]:
+    meta = await get_meta(token)
+    if not meta:
+        raise HTTPException(404, 'not_found')
+    return {
+        'token': token,
+        'locked': meta.get('locked') == '1',
+        'lastActivityAt': int(meta.get('lastActivityAt', '0') or '0'),
+    }
+
+
+@app.post('/projects/{token}/lock')
+async def lock_project(token: str, payload: Dict[str, str] = Body(...)) -> dict[str, bool]:
+    meta = await get_meta(token)
+    if not meta:
+        raise HTTPException(404, 'not_found')
+    if payload.get('ownerKey') != meta.get('ownerKey'):
+        raise HTTPException(403, 'forbidden')
+    await set_meta(token, locked='1')
+    return {'ok': True}
+
+
+@app.post('/projects/{token}/unlock')
+async def unlock_project(token: str, payload: Dict[str, str] = Body(...)) -> dict[str, bool]:
+    meta = await get_meta(token)
+    if not meta:
+        raise HTTPException(404, 'not_found')
+    if payload.get('ownerKey') != meta.get('ownerKey'):
+        raise HTTPException(403, 'forbidden')
+    await set_meta(token, locked='0')
+    return {'ok': True}
+
+
+@app.post('/projects/{token}/touch')
+async def touch_project(token: str) -> dict[str, bool]:
+    meta = await get_meta(token)
+    if not meta:
+        raise HTTPException(404, 'not_found')
+    await set_meta(token, lastActivityAt=str(now_ms()))
+    return {'ok': True}
 
 
 
