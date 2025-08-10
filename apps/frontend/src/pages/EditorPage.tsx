@@ -178,28 +178,28 @@ const EditorPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      <header className="flex items-center justify-between px-4 py-2 border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+      <header className="flex items-center justify-between px-4 py-2 border-b border-indigo-700 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
         <div className="flex items-baseline gap-3">
           <span className="text-2xl font-semibold tracking-tight">CollaTeX</span>
-          <span className="text-sm text-gray-500">Realtime LaTeX + MathJax</span>
+          <span className="text-sm opacity-80">Realtime LaTeX + MathJax</span>
         </div>
         <div className="flex items-center gap-2 flex-nowrap">
           <span className={`text-xs px-2 py-0.5 rounded ${locked ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
             {locked ? 'Locked' : 'Unlocked'}
           </span>
-          <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={refreshState}>
+          <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600" onClick={refreshState}>
             Refresh
           </button>
           {ownerKey && (locked ? (
-            <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={unlockProject}>
+            <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600" onClick={unlockProject}>
               Unlock
             </button>
           ) : (
-            <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={lockProject}>
+            <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600" onClick={lockProject}>
               Lock
             </button>
           ))}
-          <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={handleShare}>
+          <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600" onClick={handleShare}>
             Share
           </button>
           <button
@@ -211,16 +211,16 @@ const EditorPage: React.FC = () => {
             {compiling ? 'Compiling…' : 'Download PDF'}
           </button>
           {compileLog && (
-            <details className="ml-2 text-xs text-gray-600">
+            <details className="ml-2 text-xs text-gray-200">
               <summary>Show LaTeX log</summary>
-              <pre className="max-h-60 overflow-auto whitespace-pre-wrap">{compileLog}</pre>
+              <pre className="max-h-60 overflow-auto whitespace-pre-wrap text-black bg-white/80 p-2 rounded">{compileLog}</pre>
             </details>
           )}
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 flex">
-        <section className="w-1/2 h-full min-h-0 flex flex-col border-r">
+      <main className="flex-1 min-h-0 flex gap-2 p-2 bg-gray-50">
+        <section className="w-1/2 h-full min-h-0 flex flex-col rounded-md border">
           <div className="flex-1 min-h-0 p-2">
             <CodeMirror
               token={token}
@@ -232,14 +232,14 @@ const EditorPage: React.FC = () => {
             />
           </div>
         </section>
-        <aside className="w-1/2 h-full min-h-0 p-2">
+        <aside className="w-1/2 h-full min-h-0 rounded-md border p-2 overflow-auto">
           <MathJaxPreview source={texStr.trim() ? texStr : SEED_HINT} />
         </aside>
       </main>
 
-      <footer className="px-4 py-2 border-t text-xs text-gray-500 flex items-center justify-between">
+      <footer className="px-4 py-2 border-t border-indigo-700 bg-gradient-to-r from-violet-600 to-indigo-600 text-xs text-white flex items-center justify-between">
         <span>© {new Date().getFullYear()} CollaTeX</span>
-        <a className="underline hover:no-underline" href="https://github.com/ikanher/collatex" target="_blank" rel="noreferrer">
+        <a className="underline hover:no-underline text-white" href="https://github.com/ikanher/collatex" target="_blank" rel="noreferrer">
           GitHub
         </a>
       </footer>
