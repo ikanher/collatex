@@ -8,6 +8,7 @@ import { Server as WebSocketServer } from 'ws';
 import { setupWSConnection } from 'y-websocket/bin/utils';
 import { connectionsTotal, register } from './metrics';
 import { createClient } from 'redis';
+import crypto from 'crypto';
 
 const PORT = Number(process.env.PORT) || 1234;
 const ALLOWED = new Set(
@@ -38,8 +39,38 @@ function corsMiddleware(req: express.Request, res: express.Response, next: expre
   next();
 }
 
+type ProjectMeta = { locked: '0' | '1'; ownerKey: string; lastActivityAt: string };
+const projectKey = (token: string) => `collatex:project:${token}`;
+
+async function getProject(
+  redis: ReturnType<typeof createClient>,
+  token: string,
+): Promise<ProjectMeta | null> {
+  const res = await redis.hGetAll(projectKey(token));
+  if (!res || Object.keys(res).length === 0) return null;
+  return {
+    locked: (res.locked as '0' | '1') ?? '0',
+    ownerKey: res.ownerKey ?? '',
+    lastActivityAt: res.lastActivityAt ?? String(Date.now()),
+  };
+}
+
+async function setProject(
+  redis: ReturnType<typeof createClient>,
+  token: string,
+  meta: Partial<ProjectMeta>,
+) {
+  await redis.hSet(projectKey(token), meta as Record<string, string>);
+}
+
+function nowMs() {
+  return Date.now();
+}
+const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+
 export function createApp(): express.Express {
   const app = express();
+  app.use(express.json());
   app.use(corsMiddleware);
   app.get('/healthz', (_req, res) => {
     res.json({ status: 'ok' });
@@ -48,6 +79,79 @@ export function createApp(): express.Express {
     res.setHeader('Content-Type', register.contentType);
     res.end(await register.metrics());
   });
+
+  // CREATE project (no-auth)
+  app.post('/projects', async (_req, res) => {
+    const token = crypto.randomBytes(8).toString('base64url');
+    const ownerKey = crypto.randomBytes(24).toString('base64url');
+    const meta: ProjectMeta = {
+      locked: '0',
+      ownerKey,
+      lastActivityAt: String(nowMs()),
+    };
+    const redis = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379/0' });
+    await redis.connect();
+    await setProject(redis, token, meta);
+    await redis.hSet('collatex:projects', token, '1');
+    await redis.quit();
+    res.json({ token, ownerKey });
+  });
+
+  // GET project state
+  app.get('/projects/:token', async (req, res) => {
+    const redis = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379/0' });
+    await redis.connect();
+    const meta = await getProject(redis, req.params.token);
+    await redis.quit();
+    if (!meta) return res.status(404).json({ error: 'not_found' });
+    const { locked, lastActivityAt } = meta;
+    res.json({ token: req.params.token, locked: locked === '1', lastActivityAt: Number(lastActivityAt) });
+  });
+
+  // LOCK project (requires ownerKey)
+  app.post('/projects/:token/lock', async (req, res) => {
+    const { ownerKey } = req.body ?? {};
+    const redis = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379/0' });
+    await redis.connect();
+    const meta = await getProject(redis, req.params.token);
+    if (!meta) {
+      await redis.quit();
+      return res.status(404).json({ error: 'not_found' });
+    }
+    if (ownerKey !== meta.ownerKey) {
+      await redis.quit();
+      return res.status(403).json({ error: 'forbidden' });
+    }
+    await setProject(redis, req.params.token, { locked: '1' });
+    await redis.quit();
+    res.json({ ok: true });
+  });
+
+  // UNLOCK project (requires ownerKey; only after inactivity)
+  app.post('/projects/:token/unlock', async (req, res) => {
+    const { ownerKey } = req.body ?? {};
+    const redis = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379/0' });
+    await redis.connect();
+    const meta = await getProject(redis, req.params.token);
+    if (!meta) {
+      await redis.quit();
+      return res.status(404).json({ error: 'not_found' });
+    }
+    if (ownerKey !== meta.ownerKey) {
+      await redis.quit();
+      return res.status(403).json({ error: 'forbidden' });
+    }
+    const last = Number(meta.lastActivityAt || '0');
+    const inactiveMs = nowMs() - last;
+    if (inactiveMs < THREE_DAYS) {
+      await redis.quit();
+      return res.status(409).json({ error: 'too_recent', inactiveMs });
+    }
+    await setProject(redis, req.params.token, { locked: '0' });
+    await redis.quit();
+    res.json({ ok: true });
+  });
+
   return app;
 }
 
@@ -66,20 +170,19 @@ export function createServer(): http.Server {
       return;
     }
     const isProd = process.env.NODE_ENV === 'production';
-    if (!isProd) {
-      wss.handleUpgrade(req, socket, head, (ws) => {
-        setupWSConnection(ws, req);
-        connectionsTotal.labels(token!).inc();
-      });
-      return;
+    if (isProd) {
+      const exists = await redis.hGet('collatex:projects', token);
+      if (!exists) {
+        socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+        socket.destroy();
+        return;
+      }
     }
-    const exists = await redis.hGet('collatex:projects', token);
-    if (!exists) {
-      socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
-      socket.destroy();
-      return;
-    }
+    await setProject(redis, token, { lastActivityAt: String(nowMs()) });
     wss.handleUpgrade(req, socket, head, (ws) => {
+      ws.on('message', async () => {
+        await setProject(redis, token, { lastActivityAt: String(nowMs()) });
+      });
       setupWSConnection(ws, req);
       connectionsTotal.labels(token).inc();
     });

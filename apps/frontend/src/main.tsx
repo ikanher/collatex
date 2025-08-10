@@ -13,6 +13,7 @@ function AutoCreate() {
         { method: 'POST' },
       );
       const data = await res.json();
+      localStorage.setItem(`collatex:ownerKey:${data.token}`, data.ownerKey);
       window.location.replace(`/p/${data.token}`);
     })().catch(() => {
       // minimal fallback: stay on page; you can add error UI if desired

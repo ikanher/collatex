@@ -3,7 +3,7 @@ import * as Y from 'yjs';
 import CodeMirror from '../components/CodeMirror';
 import { useProject } from '../hooks/useProject';
 import MathJaxPreview from '../components/MathJaxPreview';
-import { USE_SERVER_COMPILE } from '../config';
+import { USE_SERVER_COMPILE, API_URL } from '../config';
 import { logDebug } from '../debug';
 import { compilePdfTeX } from '../lib/latexWasm';
 
@@ -16,6 +16,48 @@ const EditorPage: React.FC = () => {
   const [toast, setToast] = useState<string>('');
   const [compiling, setCompiling] = React.useState(false);
   const [compileLog, setCompileLog] = React.useState<string>('');
+  const [locked, setLocked] = useState<boolean>(false);
+  const ownerKey = React.useMemo(
+    () => localStorage.getItem(`collatex:ownerKey:${token}`) ?? '',
+    [token],
+  );
+
+  async function refreshState() {
+    const res = await fetch(`${API_URL}/projects/${token}`);
+    if (res.ok) {
+      const data = await res.json();
+      setLocked(Boolean(data.locked));
+    }
+  }
+  useEffect(() => {
+    if (token) refreshState();
+  }, [token]);
+
+  async function lockProject() {
+    const res = await fetch(`${API_URL}/projects/${token}/lock`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ownerKey }),
+    });
+    if (res.ok) {
+      setLocked(true);
+    } else {
+      // toast error
+    }
+  }
+  async function unlockProject() {
+    const res = await fetch(`${API_URL}/projects/${token}/unlock`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ownerKey }),
+    });
+    if (res.ok) {
+      setLocked(false);
+    } else {
+      await res.json().catch(() => ({}));
+      // show 409 with message "active recently" to user
+    }
+  }
 
   const handleShare = React.useCallback(async () => {
     try {
@@ -91,7 +133,43 @@ const EditorPage: React.FC = () => {
           <div className="text-xs text-gray-500">Realtime LaTeX + MathJax</div>
         </div>
         <div className="flex items-center gap-2">
-          <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={handleShare}>Share</button>
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-xs px-2 py-0.5 rounded ${
+                locked
+                  ? 'bg-rose-100 text-rose-700'
+                  : 'bg-emerald-100 text-emerald-700'
+              }`}
+            >
+              {locked ? 'Locked' : 'Unlocked'}
+            </span>
+            <button
+              className="px-3 py-1.5 rounded-lg border hover:bg-gray-50"
+              onClick={refreshState}
+            >
+              Refresh
+            </button>
+            {locked ? (
+              <button
+                className="px-3 py-1.5 rounded-lg border hover:bg-gray-50"
+                onClick={unlockProject}
+                disabled={!ownerKey}
+              >
+                Unlock
+              </button>
+            ) : (
+              <button
+                className="px-3 py-1.5 rounded-lg border hover:bg-gray-50"
+                onClick={lockProject}
+                disabled={!ownerKey}
+              >
+                Lock
+              </button>
+            )}
+          </div>
+          <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={handleShare}>
+            Share
+          </button>
           <button
             className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
             onClick={handleDownloadPdf}
@@ -124,6 +202,7 @@ const EditorPage: React.FC = () => {
                 logDebug('onChange (Yjs path) len=', text.toString().length);
               }}
               onDocChange={handleDocChange}
+              readOnly={locked}
             />
           </div>
         </div>
