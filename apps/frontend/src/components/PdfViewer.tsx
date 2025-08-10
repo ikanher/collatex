@@ -6,7 +6,7 @@ interface Props {
 
 const PdfViewer: React.FC<Props> = ({ blobUrl }) => {
   if (!blobUrl) return null;
-  return <iframe src={blobUrl} title="pdf" className="w-full h-full border" />;
+  return <iframe src={blobUrl} title="pdf" className="w-full h-full" />;
 };
 
 export default PdfViewer;

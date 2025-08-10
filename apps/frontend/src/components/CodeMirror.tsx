@@ -20,7 +20,8 @@ interface Props {
 
 const fillParent = EditorView.theme({
   '&': { height: '100%' },
-  '.cm-scroller': { overflow: 'auto' },
+  '.cm-editor': { height: '100%' },
+  '.cm-scroller': { height: '100%', overflow: 'auto' },
 });
 
 const SEED_HINT = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
