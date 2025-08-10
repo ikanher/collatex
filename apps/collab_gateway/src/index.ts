@@ -39,8 +39,6 @@ function nowMs() {
   return Date.now();
 }
 
-const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
-
 const PORT = Number(process.env.PORT) || 1234;
 const ALLOWED = new Set(
   (process.env.ALLOWED_ORIGINS || 'localhost:3000,localhost:5173').split(',')
@@ -140,7 +138,7 @@ export function createApp(): express.Express {
     res.json({ ok: true });
   });
 
-  // UNLOCK (requires ownerKey; only permitted if >= 3 days since last activity)
+  // UNLOCK (requires ownerKey)
   app.post('/projects/:token/unlock', async (req, res) => {
     const { ownerKey } = req.body ?? {};
     const redis = createClient({
@@ -155,12 +153,6 @@ export function createApp(): express.Express {
     if (ownerKey !== meta.ownerKey) {
       await redis.quit();
       return res.status(403).json({ error: 'forbidden' });
-    }
-    const last = Number(meta.lastActivityAt || '0');
-    const inactiveMs = nowMs() - last;
-    if (inactiveMs < THREE_DAYS) {
-      await redis.quit();
-      return res.status(409).json({ error: 'too_recent', inactiveMs });
     }
     await setProject(redis, req.params.token, { locked: '0' });
     await redis.quit();

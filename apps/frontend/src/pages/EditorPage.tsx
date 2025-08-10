@@ -185,30 +185,43 @@ const EditorPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
-            <span
-              className={`text-xs px-2 py-0.5 rounded ${locked ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}
-            >
-              {locked ? 'Locked' : 'Unlocked'}
-            </span>
-            <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={refreshState}>
-              Refresh
-            </button>
-            {locked ? (
-              <button
-                className="px-3 py-1.5 rounded-lg border hover:bg-gray-50"
-                onClick={unlockProject}
-                disabled={!ownerKey}
-              >
-                Unlock
-              </button>
+            {ownerKey ? (
+              <>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded ${locked ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}
+                >
+                  {locked ? 'Locked' : 'Unlocked'}
+                </span>
+                <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={refreshState}>
+                  Refresh
+                </button>
+                {locked ? (
+                  <button
+                    className="px-3 py-1.5 rounded-lg border hover:bg-gray-50"
+                    onClick={unlockProject}
+                  >
+                    Unlock
+                  </button>
+                ) : (
+                  <button
+                    className="px-3 py-1.5 rounded-lg border hover:bg-gray-50"
+                    onClick={lockProject}
+                  >
+                    Lock
+                  </button>
+                )}
+              </>
             ) : (
-              <button
-                className="px-3 py-1.5 rounded-lg border hover:bg-gray-50"
-                onClick={lockProject}
-                disabled={!ownerKey}
-              >
-                Lock
-              </button>
+              <>
+                {locked && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-rose-100 text-rose-700">
+                    Locked
+                  </span>
+                )}
+                <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={refreshState}>
+                  Refresh
+                </button>
+              </>
             )}
           </div>
           <button className="px-3 py-1.5 rounded-lg border hover:bg-gray-50" onClick={handleShare}>
