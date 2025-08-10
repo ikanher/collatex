@@ -50,7 +50,8 @@ const EditorPage: React.FC = () => {
       URL.revokeObjectURL(url);
       console.log('pdf bytes', pdf.length);
     } catch (e) {
-      setCompileLog(String(e));
+      const msg = String(e);
+      setCompileLog(msg);
     } finally {
       setCompiling(false);
     }

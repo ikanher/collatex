@@ -4,6 +4,17 @@ export type CompileResult = { pdf: Uint8Array; log: string };
 let enginePromise: Promise<any> | null = null;
 const ENGINE_URL = '/latexwasm/PdfTeXEngine.js';
 
+const SPECIALS = { '#': '\\#', '%': '\\%', '&': '\\&', '_': '\\_', '{': '\\{', '}': '\\}', '~': '\\textasciitilde{}', '^': '\\textasciicircum{}' };
+
+function escapeLatexOutsideMath(src: string): string {
+  // Split into math / non-math segments
+  const parts = src.split(/(\$\$.*?\$\$|\$.*?\$)/gs);
+  return parts.map((seg, i) => {
+    if (i % 2 === 1) return seg; // math region, leave intact
+    return seg.replace(/[#%&_{}~^]/g, m => SPECIALS[m as keyof typeof SPECIALS] || m);
+  }).join('');
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function loadPdfTeX(): Promise<any> {
   if (enginePromise) return enginePromise;
@@ -39,9 +50,8 @@ function loadPdfTeX(): Promise<any> {
 
 export function toLatexDocument(src: string): string {
   const s = src.trim();
-  // If user already provided a LaTeX doc, use it verbatim.
-  if (/\\documentclass\b/.test(s) || /\\begin\{document\}/.test(s)) return src;
-  // Otherwise, wrap as a minimal article with AMS packages.
+  if (/\\documentclass\\b/.test(s) || /\\begin\\{document\\}/.test(s)) return src;
+  const safeBody = escapeLatexOutsideMath(s);
   return [
     '\\documentclass[11pt]{article}',
     '\\usepackage[T1]{fontenc}',
@@ -50,9 +60,9 @@ export function toLatexDocument(src: string): string {
     '\\usepackage{lmodern}',
     '\\pagestyle{empty}',
     '\\begin{document}',
-    s.length ? s : '% empty body',
-    '\\end{document}',
-  ].join('\n');
+    safeBody.length ? safeBody : '% empty body',
+    '\\end{document}'
+  ].join('\\n');
 }
 
 export async function compilePdfTeX(
@@ -61,7 +71,6 @@ export async function compilePdfTeX(
 ): Promise<CompileResult> {
   const engine = await loadPdfTeX();
   engine.flushCache?.();
-  // Ensure full LaTeX document
   const doc = toLatexDocument(mainTex);
   engine.writeMemFSFile('main.tex', doc);
   for (const [name, content] of Object.entries(files)) engine.writeMemFSFile(name, content);
@@ -69,8 +78,7 @@ export async function compilePdfTeX(
   const r = await engine.compileLaTeX();
   if (!r || !r.pdf) throw new Error('Compilation failed: no PDF array returned');
   if (!('length' in r.pdf) || r.pdf.length === 0) {
-    const msg = r.log && r.log.trim() ? r.log : 'Empty PDF output (likely missing LaTeX preamble).';
-    throw new Error(msg);
+    throw new Error(r.log && r.log.trim() ? `PDF empty. Log:\n${r.log}` : 'PDF empty and no log produced.');
   }
   return { pdf: r.pdf, log: r.log ?? '' };
 }
@@ -82,4 +90,3 @@ export async function compileXeTeX(mainTex: string, _files?: Record<string, stri
   // If you need ICU data for proper CJK line breaks, mount it here with writeMemFSFile().
   throw new Error('XeTeX path not wired yet');
 }
-
