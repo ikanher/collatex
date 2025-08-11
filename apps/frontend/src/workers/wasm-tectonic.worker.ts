@@ -1,3 +1,4 @@
+// @ts-expect-error - provided by runtime bundle, no type declarations
 import initTectonic from '/tectonic/tectonic_init.js';
 
 export interface CompileRequest {
