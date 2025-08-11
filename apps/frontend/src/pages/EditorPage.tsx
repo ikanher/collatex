@@ -1,28 +1,32 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import * as Y from 'yjs';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-import CodeMirror from '../components/CodeMirror';
-import { useProject } from '../hooks/useProject';
-import MathJaxPreview from '../components/MathJaxPreview';
-import { API_URL } from '../config';
-import { logDebug } from '../debug';
-import { compileLatexInWorker } from '../lib/tectonicClient';
-import { isServerCompileEnabled, compile as serverCompile } from '../lib/compileAdapter';
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import * as Y from "yjs";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import CodeMirror from "../components/CodeMirror";
+import { useProject } from "../hooks/useProject";
+import MathJaxPreview from "../components/MathJaxPreview";
+import { API_URL } from "../config";
+import { logDebug } from "../debug";
+import { compileLatexInWorker } from "../lib/tectonicClient";
+import {
+  isServerCompileEnabled,
+  compile as serverCompile,
+} from "../lib/compileAdapter";
 
-const SEED_HINT = 'Type TeX math like \\(' + 'e^{i\\pi}+1=0' + '\\) or $$\\int_0^1 x^2\\,dx$$';
+const SEED_HINT =
+  "Type TeX math like \\(" + "e^{i\\pi}+1=0" + "\\) or $$\\int_0^1 x^2\\,dx$$";
 
 const EditorPage: React.FC = () => {
   const { token, gatewayWS } = useProject();
-  const [texStr, setTexStr] = useState<string>('');
+  const [texStr, setTexStr] = useState<string>("");
   const unsubRef = useRef<() => void>();
   const previewRef = useRef<HTMLDivElement>(null);
-  const [toast, setToast] = useState<string>('');
+  const [toast, setToast] = useState<string>("");
   const [compiling, setCompiling] = React.useState(false);
-  const [compileLog, setCompileLog] = React.useState<string>('');
+  const [compileLog, setCompileLog] = React.useState<string>("");
   const [locked, setLocked] = useState<boolean>(false);
   const ownerKey = React.useMemo(
-    () => localStorage.getItem(`collatex:ownerKey:${token}`) ?? '',
+    () => localStorage.getItem(`collatex:ownerKey:${token}`) ?? "",
     [token],
   );
 
@@ -39,8 +43,8 @@ const EditorPage: React.FC = () => {
 
   async function lockProject() {
     const res = await fetch(`${API_URL}/projects/${token}/lock`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ownerKey }),
     });
     if (res.ok) {
@@ -51,8 +55,8 @@ const EditorPage: React.FC = () => {
   }
   async function unlockProject() {
     const res = await fetch(`${API_URL}/projects/${token}/unlock`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ownerKey }),
     });
     if (res.ok) {
@@ -66,18 +70,18 @@ const EditorPage: React.FC = () => {
   const handleShare = React.useCallback(async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      setToast('Link copied to clipboard');
-      setTimeout(() => setToast(''), 1500);
+      setToast("Link copied to clipboard");
+      setTimeout(() => setToast(""), 1500);
     } catch {
-      setToast('Copy failed');
-      setTimeout(() => setToast(''), 1500);
+      setToast("Copy failed");
+      setTimeout(() => setToast(""), 1500);
     }
   }, []);
 
   const handleDownloadPdf = React.useCallback(async () => {
     if (compiling) return;
     setCompiling(true);
-    setCompileLog('');
+    setCompileLog("");
     try {
       // Try browser WASM first
       let pdfBytes: Uint8Array | null = null;
@@ -88,7 +92,7 @@ const EditorPage: React.FC = () => {
         if (log) setCompileLog(log);
         if (pdf && pdf.length > 0) pdfBytes = pdf;
       } catch (e) {
-        console.warn('WASM compile failed, falling back to client render:', e);
+        console.warn("WASM compile failed, falling back to client render:", e);
       }
       if (!pdfBytes) {
         if (isServerCompileEnabled) {
@@ -100,21 +104,21 @@ const EditorPage: React.FC = () => {
         }
         if (!pdfBytes) {
           const node = previewRef.current;
-          if (!node) throw new Error('preview missing');
+          if (!node) throw new Error("preview missing");
           const canvas = await html2canvas(node, { scale: 2 });
-          const imgData = canvas.toDataURL('image/png');
-          const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+          const imgData = canvas.toDataURL("image/png");
+          const pdf = new jsPDF({ unit: "pt", format: "a4" });
           const width = pdf.internal.pageSize.getWidth();
           const height = (canvas.height * width) / canvas.width;
-          pdf.addImage(imgData, 'PNG', 0, 0, width, height);
-          pdfBytes = new Uint8Array(pdf.output('arraybuffer'));
+          pdf.addImage(imgData, "PNG", 0, 0, width, height);
+          pdfBytes = new Uint8Array(pdf.output("arraybuffer"));
         }
       }
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = 'collatex.pdf';
+      a.download = "collatex.pdf";
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -126,23 +130,20 @@ const EditorPage: React.FC = () => {
     }
   }, [texStr, token, compiling, previewRef]);
 
-  const handleReady = useCallback(
-    (text: Y.Text) => {
-      logDebug('editor ready');
-      const observer = () => {
-        logDebug('ytext changed (Yjs)');
-        setTexStr(text.toString());
-      };
-      text.observe(observer);
-      unsubRef.current = () => text.unobserve(observer);
-
+  const handleReady = useCallback((text: Y.Text) => {
+    logDebug("editor ready");
+    const observer = () => {
+      logDebug("ytext changed (Yjs)");
       setTexStr(text.toString());
-    },
-    [],
-  );
+    };
+    text.observe(observer);
+    unsubRef.current = () => text.unobserve(observer);
+
+    setTexStr(text.toString());
+  }, []);
 
   const handleDocChange = useCallback((value: string) => {
-    logDebug('onDocChange (CM path) len=', value.length);
+    logDebug("onDocChange (CM path) len=", value.length);
     setTexStr(value);
   }, []);
 
@@ -154,28 +155,45 @@ const EditorPage: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-white">
-      <header className="flex items-center justify-between px-4 py-2 border-b border-indigo-700 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+      <header className="flex items-center justify-between px-4 py-2 border-b border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 text-gray-800">
         <div className="flex items-baseline gap-3">
-          <span className="text-2xl font-semibold tracking-tight">CollaTeX</span>
+          <span className="text-2xl font-semibold tracking-tight">
+            CollaTeX
+          </span>
           <span className="text-sm opacity-80">Realtime LaTeX + MathJax</span>
         </div>
         <div className="flex items-center gap-2 flex-nowrap">
-          <span className={`text-xs px-2 py-0.5 rounded ${locked ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
-            {locked ? 'Locked' : 'Unlocked'}
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full font-medium border ${locked ? "bg-rose-100 text-rose-700 border-rose-200" : "bg-emerald-100 text-emerald-700 border-emerald-200"}`}
+          >
+            {locked ? "Locked" : "Unlocked"}
           </span>
-          <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600" onClick={refreshState}>
+          <button
+            className="px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600"
+            onClick={refreshState}
+          >
             Refresh
           </button>
-          {ownerKey && (locked ? (
-            <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600" onClick={unlockProject}>
-              Unlock
-            </button>
-          ) : (
-            <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600" onClick={lockProject}>
-              Lock
-            </button>
-          ))}
-          <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600" onClick={handleShare}>
+          {ownerKey &&
+            (locked ? (
+              <button
+                className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600"
+                onClick={unlockProject}
+              >
+                Unlock
+              </button>
+            ) : (
+              <button
+                className="px-3 py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-600"
+                onClick={lockProject}
+              >
+                Lock
+              </button>
+            ))}
+          <button
+            className="px-3 py-1.5 rounded-lg bg-purple-500 text-white hover:bg-purple-600"
+            onClick={handleShare}
+          >
             Share
           </button>
           <button
@@ -184,15 +202,18 @@ const EditorPage: React.FC = () => {
             disabled={compiling}
             aria-busy={compiling}
           >
-            {compiling ? 'Compiling…' : isServerCompileEnabled ? 'Download PDF' : 'Export PDF'}
+            {compiling
+              ? "Compiling…"
+              : isServerCompileEnabled
+                ? "Download PDF"
+                : "Export PDF"}
           </button>
-          {!isServerCompileEnabled && (
-            <span className="text-xs opacity-80">Server compile disabled; using live preview.</span>
-          )}
           {compileLog && (
             <details className="ml-2 text-xs text-gray-200">
               <summary>Show LaTeX log</summary>
-              <pre className="max-h-60 overflow-auto whitespace-pre-wrap text-black bg-white/80 p-2 rounded">{compileLog}</pre>
+              <pre className="max-h-60 overflow-auto whitespace-pre-wrap text-black bg-white/80 p-2 rounded">
+                {compileLog}
+              </pre>
             </details>
           )}
         </div>
@@ -205,20 +226,30 @@ const EditorPage: React.FC = () => {
               token={token}
               gatewayWS={gatewayWS}
               onReady={handleReady}
-              onChange={text => logDebug('onChange (Yjs path) len=', text.toString().length)}
+              onChange={(text) =>
+                logDebug("onChange (Yjs path) len=", text.toString().length)
+              }
               onDocChange={handleDocChange}
               readOnly={locked}
             />
           </div>
         </section>
-        <aside className="flex-1 h-full min-h-0 rounded-md border p-2 overflow-auto" ref={previewRef}>
+        <aside
+          className="flex-1 h-full min-h-0 rounded-md border p-2 overflow-auto"
+          ref={previewRef}
+        >
           <MathJaxPreview source={texStr.trim() ? texStr : SEED_HINT} />
         </aside>
       </main>
 
-      <footer className="px-4 py-2 border-t border-indigo-700 bg-gradient-to-r from-violet-600 to-indigo-600 text-xs text-white flex items-center justify-between">
+      <footer className="px-4 py-2 border-t border-indigo-200 bg-gradient-to-r from-violet-50 to-indigo-50 text-xs text-gray-600 flex items-center justify-between">
         <span>© {new Date().getFullYear()} CollaTeX</span>
-        <a className="underline hover:no-underline text-white" href="https://github.com/ikanher/collatex" target="_blank" rel="noreferrer">
+        <a
+          className="underline hover:no-underline text-indigo-600"
+          href="https://github.com/ikanher/collatex"
+          target="_blank"
+          rel="noreferrer"
+        >
           GitHub
         </a>
       </footer>
