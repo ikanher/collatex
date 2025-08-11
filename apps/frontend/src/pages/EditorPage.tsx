@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { Download, Lock, RefreshCw, Share2, Unlock } from 'lucide-react';
 import CodeMirror from '../components/CodeMirror';
 import { useProject } from '../hooks/useProject';
 import MathJaxPreview from '../components/MathJaxPreview';
@@ -154,43 +155,52 @@ const EditorPage: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-white">
-      <header className="flex items-center justify-between px-4 py-2 border-b border-indigo-700 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+      <header className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-100 text-gray-800">
         <div className="flex items-baseline gap-3">
           <span className="text-2xl font-semibold tracking-tight">CollaTeX</span>
           <span className="text-sm opacity-80">Realtime LaTeX + MathJax</span>
         </div>
         <div className="flex items-center gap-2 flex-nowrap">
-          <span className={`text-xs px-2 py-0.5 rounded ${locked ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+          <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded ${locked ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+            {locked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
             {locked ? 'Locked' : 'Unlocked'}
           </span>
-          <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600" onClick={refreshState}>
+          <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600" onClick={refreshState}>
+            <RefreshCw className="w-4 h-4" />
             Refresh
           </button>
           {ownerKey && (locked ? (
-            <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600" onClick={unlockProject}>
+            <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600" onClick={unlockProject}>
+              <Unlock className="w-4 h-4" />
               Unlock
             </button>
           ) : (
-            <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600" onClick={lockProject}>
+            <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600" onClick={lockProject}>
+              <Lock className="w-4 h-4" />
               Lock
             </button>
           ))}
-          <button className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600" onClick={handleShare}>
+          <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-teal-500 text-white hover:bg-teal-600" onClick={handleShare}>
+            <Share2 className="w-4 h-4" />
             Share
           </button>
           <button
-            className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-60"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-500 text-white hover:bg-purple-600 disabled:opacity-60"
             onClick={handleDownloadPdf}
             disabled={compiling}
             aria-busy={compiling}
           >
-            {compiling ? 'Compiling…' : isServerCompileEnabled ? 'Download PDF' : 'Export PDF'}
+            {compiling ? (
+              'Compiling…'
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                {isServerCompileEnabled ? 'Download PDF' : 'Export PDF'}
+              </>
+            )}
           </button>
-          {!isServerCompileEnabled && (
-            <span className="text-xs opacity-80">Server compile disabled; using live preview.</span>
-          )}
           {compileLog && (
-            <details className="ml-2 text-xs text-gray-200">
+            <details className="ml-2 text-xs text-gray-700">
               <summary>Show LaTeX log</summary>
               <pre className="max-h-60 overflow-auto whitespace-pre-wrap text-black bg-white/80 p-2 rounded">{compileLog}</pre>
             </details>
@@ -216,9 +226,9 @@ const EditorPage: React.FC = () => {
         </aside>
       </main>
 
-      <footer className="px-4 py-2 border-t border-indigo-700 bg-gradient-to-r from-violet-600 to-indigo-600 text-xs text-white flex items-center justify-between">
+      <footer className="px-4 py-2 border-t border-gray-200 bg-gray-100 text-xs text-gray-800 flex items-center justify-between">
         <span>© {new Date().getFullYear()} CollaTeX</span>
-        <a className="underline hover:no-underline text-white" href="https://github.com/ikanher/collatex" target="_blank" rel="noreferrer">
+        <a className="underline hover:no-underline text-gray-800" href="https://github.com/ikanher/collatex" target="_blank" rel="noreferrer">
           GitHub
         </a>
       </footer>
