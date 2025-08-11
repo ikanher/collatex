@@ -15,6 +15,7 @@ interface Props {
   onReady?: (text: Y.Text) => void;
   onChange?: (text: Y.Text) => void;
   onDocChange?: (value: string) => void;
+  onViewerChange?: (count: number) => void;
   readOnly?: boolean;
 }
 
@@ -26,7 +27,7 @@ const fillParent = EditorView.theme({
 
 const SEED_HINT = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
 
-const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDocChange, readOnly = false }) => {
+const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDocChange, onViewerChange, readOnly = false }) => {
   const ref = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView>();
   const ydocRef = useRef<Y.Doc>(new Y.Doc());
@@ -36,6 +37,7 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
   const onReadyRef = useRef<typeof onReady>();
   const onChangeRef = useRef<typeof onChange>();
   const onDocChangeRef = useRef<typeof onDocChange>();
+  const onViewerChangeRef = useRef<typeof onViewerChange>();
   useEffect(() => {
     onReadyRef.current = onReady;
   }, [onReady]);
@@ -45,6 +47,9 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
   useEffect(() => {
     onDocChangeRef.current = onDocChange;
   }, [onDocChange]);
+  useEffect(() => {
+    onViewerChangeRef.current = onViewerChange;
+  }, [onViewerChange]);
 
   useEffect(() => {
     const ydoc = ydocRef.current;
@@ -60,6 +65,12 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
     }
     const awareness = provider?.awareness ?? new Awareness(ydoc);
     const ytext = ydoc.getText('document');
+
+    const updateViewerCount = () => {
+      onViewerChangeRef.current?.(awareness.getStates().size);
+    };
+    awareness.on('change', updateViewerCount);
+    updateViewerCount();
 
     const state = EditorState.create({
       doc: ytext.toString(),
@@ -90,6 +101,7 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
     onReadyRef.current?.(ytext);
     return () => {
       viewRef.current?.destroy();
+      awareness.off('change', updateViewerCount);
       provider?.destroy();
       if (!provider) {
         awareness.destroy();
