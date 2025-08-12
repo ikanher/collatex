@@ -144,7 +144,7 @@ mjx-container[jax="SVG"] svg {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
 }
 .noise::before{content:'';position:fixed;inset:0;pointer-events:none;opacity:.04;mix-blend-mode:overlay;background-image:url('data:image/svg+xml;...');}
