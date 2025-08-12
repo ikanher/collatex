@@ -19,7 +19,7 @@ function AutoCreate() {
       }
     })().catch((e) => console.error('AutoCreate failed', e));
   }, []);
-  return <div className="h-full grid place-items-center text-sm text-gray-500">Creating project…</div>;
+  return <div className="h-full grid place-items-center text-sm text-muted-foreground">Creating project…</div>;
 }
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(

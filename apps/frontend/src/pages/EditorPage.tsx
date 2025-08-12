@@ -156,42 +156,44 @@ const EditorPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-white">
-      <header className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-surface-soft text-gray-800">
+    <div className="h-screen flex flex-col bg-background">
+      <header className="flex items-center justify-between px-4 py-2 border-b border-border bg-card/80 backdrop-blur text-foreground">
         <div className="flex items-baseline gap-3">
           <span className="text-2xl font-semibold tracking-tight">CollaTeX</span>
           <span className="text-sm opacity-80">Realtime LaTeX + MathJax</span>
         </div>
         <div className="flex items-center gap-2 flex-nowrap">
-          <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded ${locked ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
-            {locked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">
+            {locked ? <Lock className="size-3 text-destructive" /> : <Unlock className="size-3 text-primary" />}
             {locked ? 'Locked' : 'Unlocked'}
           </span>
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-brand-100 text-brand-700">
-            <Users className="w-3 h-3" />
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-accent text-accent-foreground">
+            <Users className="size-3" />
             {viewerCount}
           </span>
-          <Button className="bg-blue-500 hover:bg-blue-600 text-white gap-1" onClick={refreshState}>
-            <RefreshCw className="w-4 h-4" />
+          <Button variant="secondary" size="sm" className="gap-1" onClick={refreshState}>
+            <RefreshCw className="size-4" />
             Refresh
           </Button>
           {ownerKey && (locked ? (
-            <Button className="bg-green-500 hover:bg-green-600 text-white gap-1" onClick={unlockProject}>
-              <Unlock className="w-4 h-4" />
+            <Button variant="secondary" size="sm" className="gap-1" onClick={unlockProject}>
+              <Unlock className="size-4" />
               Unlock
             </Button>
           ) : (
-            <Button className="bg-red-500 hover:bg-red-600 text-white gap-1" onClick={lockProject}>
-              <Lock className="w-4 h-4" />
+            <Button variant="destructive" size="sm" className="gap-1" onClick={lockProject}>
+              <Lock className="size-4" />
               Lock
             </Button>
           ))}
-          <Button className="bg-teal-500 hover:bg-teal-600 text-white gap-1" onClick={handleShare}>
-            <Share2 className="w-4 h-4" />
+          <Button variant="secondary" size="sm" className="gap-1" onClick={handleShare}>
+            <Share2 className="size-4" />
             Share
           </Button>
           <Button
-            className="bg-purple-500 hover:bg-purple-600 text-white gap-1 disabled:opacity-60"
+            variant="default"
+            size="sm"
+            className="gap-1"
             onClick={handleDownloadPdf}
             disabled={compiling}
             aria-busy={compiling}
@@ -200,21 +202,21 @@ const EditorPage: React.FC = () => {
               'Compiling…'
             ) : (
               <>
-                <Download className="w-4 h-4" />
+                <Download className="size-4" />
                 {isServerCompileEnabled ? 'Download PDF' : 'Export PDF'}
               </>
             )}
           </Button>
           {compileLog && (
-            <details className="ml-2 text-xs text-gray-700">
+            <details className="ml-2 text-xs text-muted-foreground">
               <summary>Show LaTeX log</summary>
-              <pre className="max-h-60 overflow-auto whitespace-pre-wrap text-black bg-white/80 p-2 rounded">{compileLog}</pre>
+              <pre className="max-h-60 overflow-auto whitespace-pre-wrap text-foreground bg-card/80 p-2 rounded">{compileLog}</pre>
             </details>
           )}
         </div>
       </header>
-      <main className="flex-1 h-full min-h-0 flex gap-4 p-4 bg-surface-soft">
-        <section className="flex-1 h-full min-h-0 flex flex-col rounded-xl border bg-surface shadow-soft">
+      <main className="flex-1 h-full min-h-0 flex gap-4 p-4 bg-background">
+        <section className="flex-1 h-full min-h-0 flex flex-col rounded-xl border border-border bg-card shadow-soft">
           <div className="flex-1 min-h-0 p-2">
             <CodeMirror
               token={token}
@@ -227,20 +229,20 @@ const EditorPage: React.FC = () => {
             />
           </div>
         </section>
-        <aside className="flex-1 h-full min-h-0 rounded-xl border bg-surface shadow-soft p-2 overflow-auto" ref={previewRef}>
+        <aside className="flex-1 h-full min-h-0 rounded-xl border border-border bg-card shadow-soft p-2 overflow-auto" ref={previewRef}>
           <MathJaxPreview source={texStr.trim() ? texStr : SEED_HINT} />
         </aside>
       </main>
 
-      <footer className="px-4 py-2 border-t border-gray-200 bg-surface-soft text-xs text-gray-800 flex items-center justify-between">
+      <footer className="px-4 py-2 border-t border-border bg-card/80 backdrop-blur text-xs text-foreground flex items-center justify-between">
         <span>© {new Date().getFullYear()} CollaTeX</span>
-        <a className="underline hover:no-underline text-gray-800" href="https://github.com/ikanher/collatex" target="_blank" rel="noreferrer">
+        <a className="underline hover:no-underline" href="https://github.com/ikanher/collatex" target="_blank" rel="noreferrer">
           GitHub
         </a>
       </footer>
 
       {toast && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white text-sm px-3 py-1.5 rounded-md shadow">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-foreground text-background text-sm px-3 py-1.5 rounded-md shadow">
           {toast}
         </div>
       )}
