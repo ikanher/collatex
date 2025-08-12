@@ -188,8 +188,13 @@ export function createServer(): http.Server {
     // Touch activity on upgrade
     await setProject(redis, token, { lastActivityAt: String(nowMs()) });
     wss.handleUpgrade(req, socket, head, (ws) => {
-      // Touch activity on any message
+      // Touch activity on any message and enforce lock state
       ws.on('message', async () => {
+        const meta = await getProject(redis, token);
+        if (meta?.locked === '1') {
+          ws.close(1008, 'locked');
+          return;
+        }
         await setProject(redis, token, { lastActivityAt: String(nowMs()) });
       });
       setupWSConnection(ws, req);

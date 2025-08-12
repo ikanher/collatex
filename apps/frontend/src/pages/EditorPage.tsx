@@ -40,6 +40,12 @@ const EditorPage: React.FC = () => {
     if (token) refreshState();
   }, [token]);
 
+  useEffect(() => {
+    if (!token) return;
+    const id = setInterval(refreshState, 5000);
+    return () => clearInterval(id);
+  }, [token]);
+
   async function lockProject() {
     const res = await fetch(`${API_URL}/projects/${token}/lock`, {
       method: 'POST',
@@ -48,6 +54,7 @@ const EditorPage: React.FC = () => {
     });
     if (res.ok) {
       setLocked(true);
+      refreshState();
     } else {
       /* toast error */
     }
@@ -60,6 +67,7 @@ const EditorPage: React.FC = () => {
     });
     if (res.ok) {
       setLocked(false);
+      refreshState();
     } else {
       await res.json().catch(() => ({}));
       // show 409 w/ message "active recently" to user
