@@ -157,19 +157,19 @@ const EditorPage: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      <header className="flex items-center justify-between px-4 py-2 border-b border-border bg-card/80 backdrop-blur text-foreground">
+      <header className="flex items-center justify-between px-4 py-2 border-b border-border bg-gradient-to-r from-card via-muted/40 to-card backdrop-blur text-foreground">
         <div className="flex items-baseline gap-3">
-          <span className="text-2xl font-semibold tracking-tight">CollaTeX</span>
+          <span className="text-2xl font-semibold tracking-tight bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">CollaTeX</span>
           <span className="text-sm opacity-80">Realtime LaTeX + MathJax</span>
         </div>
         <div className="flex items-center gap-2 flex-nowrap">
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">
-            {locked ? <Lock className="size-3 text-destructive" /> : <Unlock className="size-3 text-primary" />}
-            {locked ? 'Locked' : 'Unlocked'}
-          </span>
           <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-accent text-accent-foreground">
             <Users className="size-3" />
             {viewerCount}
+          </span>
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">
+            {locked ? <Lock className="size-3 text-destructive" /> : <Unlock className="size-3 text-primary" />}
+            {locked ? 'Locked' : 'Unlocked'}
           </span>
           <Button variant="secondary" size="sm" className="gap-1" onClick={refreshState}>
             <RefreshCw className="size-4" />
@@ -225,6 +225,8 @@ const EditorPage: React.FC = () => {
               onChange={text => logDebug('onChange (Yjs path) len=', text.toString().length)}
               onDocChange={handleDocChange}
               onViewerChange={setViewerCount}
+              onLockedChange={setLocked}
+              locked={locked}
               readOnly={locked}
             />
           </div>

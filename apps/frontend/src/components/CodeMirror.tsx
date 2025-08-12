@@ -16,6 +16,8 @@ interface Props {
   onChange?: (text: Y.Text) => void;
   onDocChange?: (value: string) => void;
   onViewerChange?: (count: number) => void;
+  onLockedChange?: (locked: boolean) => void;
+  locked?: boolean;
   readOnly?: boolean;
 }
 
@@ -27,10 +29,11 @@ const fillParent = EditorView.theme({
 
 const SEED_HINT = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
 
-const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDocChange, onViewerChange, readOnly = false }) => {
+const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDocChange, onViewerChange, onLockedChange, locked = false, readOnly = false }) => {
   const ref = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView>();
   const ydocRef = useRef<Y.Doc>(new Y.Doc());
+  const awarenessRef = useRef<Awareness>();
   const editableExt = React.useMemo(() => EditorView.editable.of(!readOnly), [readOnly]);
 
   // Stable refs for callbacks to avoid re-initializing the editor on prop changes
@@ -38,6 +41,7 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
   const onChangeRef = useRef<typeof onChange>();
   const onDocChangeRef = useRef<typeof onDocChange>();
   const onViewerChangeRef = useRef<typeof onViewerChange>();
+  const onLockedChangeRef = useRef<typeof onLockedChange>();
   useEffect(() => {
     onReadyRef.current = onReady;
   }, [onReady]);
@@ -50,6 +54,9 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
   useEffect(() => {
     onViewerChangeRef.current = onViewerChange;
   }, [onViewerChange]);
+  useEffect(() => {
+    onLockedChangeRef.current = onLockedChange;
+  }, [onLockedChange]);
 
   useEffect(() => {
     const ydoc = ydocRef.current;
@@ -64,20 +71,24 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
       logDebug('CodeMirror provider failed');
     }
     const awareness = provider?.awareness ?? new Awareness(ydoc);
+    awarenessRef.current = awareness;
     const ytext = ydoc.getText('document');
 
-    const updateViewerCount = () => {
-      onViewerChangeRef.current?.(awareness.getStates().size);
+    const updateAwareness = () => {
+      const states = awareness.getStates();
+      onViewerChangeRef.current?.(states.size);
+      const isLocked = Array.from(states.values()).some((s) => Boolean((s as { locked?: boolean }).locked));
+      onLockedChangeRef.current?.(isLocked);
     };
-    awareness.on('change', updateViewerCount);
-    updateViewerCount();
+    awareness.on('change', updateAwareness);
+    updateAwareness();
 
     const state = EditorState.create({
       doc: ytext.toString(),
       extensions: [
         fillParent,
         keymap.of(defaultKeymap),
-        latex(),
+        latex({ enableLinting: false, enableTooltips: false }),
         yCollab(ytext, awareness),
         editableExt,
         placeholder(SEED_HINT),
@@ -101,7 +112,7 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
     onReadyRef.current?.(ytext);
     return () => {
       viewRef.current?.destroy();
-      awareness.off('change', updateViewerCount);
+      awareness.off('change', updateAwareness);
       provider?.destroy();
       if (!provider) {
         awareness.destroy();
@@ -110,6 +121,13 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
     };
     // IMPORTANT: only re-run when token, gatewayWS, or readOnly change
   }, [token, gatewayWS, editableExt]);
+
+  useEffect(() => {
+    const awareness = awarenessRef.current;
+    if (awareness) {
+      awareness.setLocalStateField('locked', locked);
+    }
+  }, [locked]);
 
   return <div ref={ref} className="h-full min-h-0" />;
 };
