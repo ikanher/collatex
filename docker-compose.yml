@@ -12,8 +12,10 @@ services:
       - redis
     environment:
       PORT: 1234
-      ALLOWED_ORIGINS: localhost
-      COLLATEX_API_TOKEN: changeme
+      API_TOKEN: changeme
+      ALLOWED_ORIGINS: localhost:5173
+      COLLATEX_ALLOWED_ORIGINS: http://localhost:5173
+      REDIS_URL: redis://redis:6379/0
   frontend:
     build:
       context: ./apps/frontend
