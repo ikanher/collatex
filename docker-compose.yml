@@ -3,7 +3,9 @@ services:
   redis:
     image: redis:7-alpine
   gateway:
-    build: ./apps/collab_gateway
+    build:
+      context: ./apps/collab_gateway
+      network: host
     ports:
       - "1234:1234"
     depends_on:
@@ -15,6 +17,7 @@ services:
   frontend:
     build:
       context: ./apps/frontend
+      network: host
       args:
         VITE_API_TOKEN: changeme
     ports: ["5173:80"]
