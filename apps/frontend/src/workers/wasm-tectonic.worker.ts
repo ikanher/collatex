@@ -1,5 +1,9 @@
+// Tectonic is loaded at runtime from the public assets folder.
 // @ts-expect-error - provided by runtime bundle, no type declarations
-import initTectonic from '/tectonic/tectonic_init.js';
+const loadTectonic = async () => {
+  const modulePath = '/tectonic/tectonic_init.js';
+  return (await import(/* @vite-ignore */ modulePath)).default;
+};
 
 export interface CompileRequest {
   latex: string;
@@ -16,6 +20,7 @@ export interface CompileResponse {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 self.onmessage = async (_e: MessageEvent<CompileRequest>) => {
   try {
+    const initTectonic = await loadTectonic();
     const engine = await initTectonic('/tectonic/tectonic.wasm');
     // TODO: wire file system and actual compilation
     engine; // silence unused
