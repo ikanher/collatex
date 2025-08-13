@@ -8,6 +8,7 @@ import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { Awareness } from 'y-protocols/awareness';
 import { logDebug } from '../debug';
+import { connectWs } from '../ws';
 
 interface Props {
   token: string;
@@ -62,7 +63,7 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
     const ydoc = ydocRef.current;
     let provider: WebsocketProvider | undefined;
     try {
-      provider = new WebsocketProvider(gatewayWS, token, ydoc);
+      provider = connectWs(ydoc, token, gatewayWS);
       logDebug('CodeMirror provider', `${gatewayWS}/${token}`);
     } catch (err) {
       if (window.location.hostname !== 'localhost') {
