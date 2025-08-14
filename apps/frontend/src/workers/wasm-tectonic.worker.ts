@@ -5,6 +5,14 @@ const loadTectonic = async () => {
   return (await import(/* @vite-ignore */ modulePath)).default;
 };
 
+let enginePromise: Promise<unknown> | null = null;
+async function getEngine() {
+  if (!enginePromise) {
+    enginePromise = loadTectonic().then(init => (init as any)('/tectonic/tectonic.wasm')); // eslint-disable-line @typescript-eslint/no-explicit-any
+  }
+  return enginePromise;
+}
+
 export interface CompileRequest {
   latex: string;
   files: Record<string, Uint8Array>;
@@ -17,14 +25,22 @@ export interface CompileResponse {
   log: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-self.onmessage = async (_e: MessageEvent<CompileRequest>) => {
+self.onmessage = async (e: MessageEvent<CompileRequest>) => {
   try {
-    const initTectonic = await loadTectonic();
-    const engine = await initTectonic('/tectonic/tectonic.wasm');
-    // TODO: wire file system and actual compilation
-    engine; // silence unused
-      self.postMessage({ ok: false, log: 'Tectonic WASM compilation not implemented yet' } as CompileResponse);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const engine: any = await getEngine();
+    const fs = engine.fs || engine.FS; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const enc = new TextEncoder();
+    fs.writeFile('/main.tex', enc.encode(e.data.latex));
+    for (const [name, data] of Object.entries(e.data.files || {})) {
+      fs.writeFile(`/${name}`, data);
+    }
+    const logs: string[] = [];
+    if (engine.stderr) engine.stderr = (s: string) => logs.push(s);
+    if (engine.stdout) engine.stdout = (s: string) => logs.push(s);
+    await engine.compile('/main.tex', e.data.engineOpts || {});
+    const pdf: Uint8Array = fs.readFile('/main.pdf');
+    self.postMessage({ ok: true, pdf, log: logs.join('\n') } as CompileResponse);
   } catch (err) {
     self.postMessage({ ok: false, log: String(err) } as CompileResponse);
   }
