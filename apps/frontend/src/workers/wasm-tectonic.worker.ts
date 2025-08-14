@@ -1,4 +1,5 @@
 import { toLatexDocument } from '@/lib/latexWasm';
+import { USE_STUB_ENGINE } from '@/lib/flags';
 
 interface CompileRequest {
   latex: string;
@@ -22,9 +23,16 @@ async function getEngine() {
   if (enginePromise) return enginePromise;
 
   enginePromise = (async () => {
+    if (USE_STUB_ENGINE) {
+      const { default: Stub } = await import('../mocks/PdfTeXEngine');
+      const eng = new Stub();
+      await eng.loadEngine?.();
+      return eng;
+    }
     try {
       // @ts-expect-error - loaded from public assets at runtime
-      const initMod = await import(/* @vite-ignore */ '/tectonic/tectonic_init.js');
+      const t = '/tectonic/tectonic_init.js';
+      const initMod = await import(/* @vite-ignore */ t);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return await (initMod as any).default('/tectonic/tectonic.wasm');
     } catch {

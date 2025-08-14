@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { generatePdf } from '../src/lib/pdfGenerator';
 
-vi.mock('../src/lib/flags', () => ({ ENABLE_WASM_TEX: true }));
+vi.mock('../src/lib/flags', () => ({ ENABLE_WASM_TEX: true, USE_STUB_ENGINE: false }));
 vi.mock('../src/lib/compileAdapter', () => ({ compile: vi.fn(), isServerCompileEnabled: false }));
 
 vi.mock('html2canvas', () => ({ default: vi.fn() }));
