@@ -33,7 +33,7 @@ class FakeWorker {
       if (workerOk) {
         this.onmessage?.({ data: { ok: true, pdf: new Uint8Array([1]), log: '' } });
       } else {
-        this.onmessage?.({ data: { ok: false, log: '' } });
+        this.onmessage?.({ data: { ok: false, error: 'tectonic_unavailable', log: '' } });
       }
     }, 0);
   }
@@ -65,6 +65,7 @@ describe('generatePdf', () => {
     const res = await generatePdf({ source: 'hi', previewEl: document.createElement('div') });
     expect(res.via).toBe('canvas');
     expect(html2canvasMock).toHaveBeenCalled();
+    expect(res.log).toContain('⚠ Tectonic unavailable, falling back to screenshot export.');
   });
 });
 

@@ -43,6 +43,9 @@ export async function generatePdf({ source, previewEl, onStatus }: GeneratePdfOp
     }
   }
 
+  log = [log, '⚠ Tectonic unavailable, falling back to screenshot export.']
+    .filter(Boolean)
+    .join('\n');
   onStatus?.('Rendering preview…');
   const canvas = await html2canvas(previewEl, { scale: 2 });
   const imgData = canvas.toDataURL('image/png');

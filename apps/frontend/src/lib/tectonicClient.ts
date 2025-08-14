@@ -23,7 +23,6 @@ export async function compileLatexInWorker(hooks: CompileHooks): Promise<WorkerC
 
   const WorkerCtor = (await import('@/workers/wasm-tectonic.worker?worker')).default;
   const worker: Worker = new WorkerCtor();
-  const files: Record<string, Uint8Array> = {};
 
   try {
     const res = await new Promise<CompileResponse>((resolve, reject) => {
@@ -31,10 +30,10 @@ export async function compileLatexInWorker(hooks: CompileHooks): Promise<WorkerC
       const errorHandler = (err: ErrorEvent) => reject(new Error(err.message));
       worker.addEventListener('message', messageHandler, { once: true });
       worker.addEventListener('error', errorHandler, { once: true });
-      worker.postMessage({ latex: source, files, engineOpts: {} });
+      worker.postMessage({ latex: source, engineOpts: {} });
     });
 
-    if (!res.ok || !res.pdf || res.pdf.length === 0) {
+    if (!res.ok || !res.pdf?.length) {
       const err = new Error(res.error || 'WASM compile failed');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (err as any).log = res.log;

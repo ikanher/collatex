@@ -2,7 +2,6 @@ import { toLatexDocument } from '@/lib/latexWasm';
 
 interface CompileRequest {
   latex: string;
-  files: Record<string, Uint8Array>;
   engineOpts?: Record<string, unknown>;
 }
 
@@ -41,42 +40,24 @@ self.onmessage = async (e: MessageEvent<CompileRequest>) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const engine: any = await getEngine();
 
-    engine.flushCache?.();
-
     const src = toLatexDocument(e.data.latex);
     engine.writeMemFSFile?.('main.tex', src);
     engine.setEngineMainFile?.('main.tex');
-
-    for (const [name, data] of Object.entries(e.data.files || {})) {
-      engine.writeMemFSFile?.(name, data);
-    }
 
     if ('stdout' in engine) engine.stdout = (s: string) => logs.push(s);
     if ('stderr' in engine) engine.stderr = (s: string) => logs.push(s);
 
     const result = await engine.compileLaTeX?.(e.data.engineOpts || {});
+    const pdf: Uint8Array | undefined = result?.pdf;
+    const log = [logs.join('\n'), result?.log || ''].filter(Boolean).join('\n');
 
-    let pdf: Uint8Array | undefined = result?.pdf;
-    let log = result?.log || '';
-
-    // Some engines (e.g. Tectonic) write the output file to a virtual FS.
-    if (!pdf && (engine.readMemFSFile || engine.readFile)) {
-      pdf = engine.readMemFSFile?.('main.pdf') || engine.readFile?.('main.pdf');
-    }
-
-    log = [logs.join('\n'), log].filter(Boolean).join('\n');
-
-    if (pdf && pdf.length > 0) {
+    if (pdf && pdf.length) {
       self.postMessage({ ok: true, pdf, log } as CompileResponse, [pdf.buffer]);
     } else {
-      self.postMessage({ ok: false, log } as CompileResponse);
+      self.postMessage({ ok: false, log, error: 'tectonic_unavailable' } as CompileResponse);
     }
   } catch {
-    self.postMessage({
-      ok: false,
-      log: logs.join('\n'),
-      error: 'tectonic_unavailable',
-    } as CompileResponse);
+    self.postMessage({ ok: false, log: logs.join('\n'), error: 'tectonic_unavailable' } as CompileResponse);
   }
 };
 
