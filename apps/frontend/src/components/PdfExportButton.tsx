@@ -19,7 +19,7 @@ const PdfExportButton: React.FC<Props> = ({ getSource, previewRef }) => {
     if (!previewEl) return;
     setBusy(true);
     setLog('');
-    setStatus('Compiling…');
+    setStatus('Loading engine…');
     try {
       const res = await generatePdf({ source: getSource(), previewEl, onStatus: setStatus });
       if (res.log) setLog(res.log);

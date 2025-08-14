@@ -17,33 +17,35 @@ export interface GeneratePdfResult {
 }
 
 export async function generatePdf({ source, previewEl, onStatus }: GeneratePdfOptions): Promise<GeneratePdfResult> {
-  onStatus?.('Loading Tectonic…');
+  onStatus?.('Loading engine…');
   await Promise.resolve();
+  let log = '';
+
   try {
     onStatus?.('Compiling…');
     const r = await compileLatexInWorker({ getSource: () => source });
-    if (r.ok && r.pdf) {
-      return { blob: new Blob([r.pdf], { type: 'application/pdf' }), log: r.log, via: 'wasm' };
-    }
-    if (r.log) {
-      // WASM provided log but no pdf
-      return { log: r.log, error: 'WASM compile failed', via: 'wasm' };
-    }
+    return { blob: new Blob([r.pdf], { type: 'application/pdf' }), log: r.log, via: 'wasm' };
   } catch (err) {
-    return { error: String(err), via: 'wasm' };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    log = (err as any)?.log || '';
   }
 
   if (isServerCompileEnabled) {
     onStatus?.('Compiling on server…');
-    const res = await serverCompile(source);
-    if (res.ok && res.pdf) {
-      return { blob: new Blob([res.pdf], { type: 'application/pdf' }), log: res.log, via: 'server' };
-    }
-    if (res.log) {
-      onStatus?.('Server compile failed');
+    try {
+      const res = await serverCompile(source);
+      if (res.ok && res.pdf) {
+        return { blob: new Blob([res.pdf], { type: 'application/pdf' }), log: res.log || log, via: 'server' };
+      }
+      log = res.log || log;
+    } catch {
+      /* ignore */
     }
   }
 
+  log = [log, '⚠ Tectonic unavailable, falling back to screenshot export.']
+    .filter(Boolean)
+    .join('\n');
   onStatus?.('Rendering preview…');
   const canvas = await html2canvas(previewEl, { scale: 2 });
   const imgData = canvas.toDataURL('image/png');
@@ -52,5 +54,5 @@ export async function generatePdf({ source, previewEl, onStatus }: GeneratePdfOp
   const height = (canvas.height * width) / canvas.width;
   pdf.addImage(imgData, 'PNG', 0, 0, width, height);
   const pdfBytes = new Uint8Array(pdf.output('arraybuffer'));
-  return { blob: new Blob([pdfBytes], { type: 'application/pdf' }), via: 'canvas' };
+  return { blob: new Blob([pdfBytes], { type: 'application/pdf' }), log, via: 'canvas' };
 }
