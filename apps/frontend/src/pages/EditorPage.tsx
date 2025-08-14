@@ -1,15 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-import { Download, Lock, RefreshCw, Share2, Unlock, Users } from 'lucide-react';
+import { Lock, RefreshCw, Share2, Unlock, Users } from 'lucide-react';
 import CodeMirror from '../components/CodeMirror';
 import { useProject } from '../hooks/useProject';
 import MathJaxPreview from '../components/MathJaxPreview';
 import { API_URL } from '../config';
 import { logDebug } from '../debug';
-import { compileLatexInWorker } from '../lib/tectonicClient';
-import { isServerCompileEnabled, compile as serverCompile } from '../lib/compileAdapter';
+import PdfExportButton from '@/components/PdfExportButton';
 import { Button } from '@/components/ui/button';
 
 const SEED_HINT = 'Type TeX math like \\(' + 'e^{i\\pi}+1=0' + '\\) or $$\\int_0^1 x^2\\,dx$$';
@@ -20,8 +17,6 @@ const EditorPage: React.FC = () => {
   const unsubRef = useRef<() => void>();
   const previewRef = useRef<HTMLDivElement>(null);
   const [toast, setToast] = useState<string>('');
-  const [compiling, setCompiling] = React.useState(false);
-  const [compileLog, setCompileLog] = React.useState<string>('');
   const [locked, setLocked] = useState<boolean>(false);
   const [viewerCount, setViewerCount] = useState<number>(1);
   const ownerKey = React.useMemo(
@@ -85,57 +80,6 @@ const EditorPage: React.FC = () => {
     }
   }, []);
 
-  const handleDownloadPdf = React.useCallback(async () => {
-    if (compiling) return;
-    setCompiling(true);
-    setCompileLog('');
-    try {
-      // Try browser WASM first
-      let pdfBytes: Uint8Array | null = null;
-      try {
-        const { pdf, log } = await compileLatexInWorker({
-          getSource: () => texStr,
-        });
-        if (log) setCompileLog(log);
-        if (pdf && pdf.length > 0) pdfBytes = pdf;
-      } catch (e) {
-        console.warn('WASM compile failed, falling back to client render:', e);
-      }
-      if (!pdfBytes) {
-        if (isServerCompileEnabled) {
-          const res = await serverCompile();
-          if (res.ok && res.pdf) {
-            pdfBytes = res.pdf;
-            if (res.log) setCompileLog(res.log);
-          }
-        }
-        if (!pdfBytes) {
-          const node = previewRef.current;
-          if (!node) throw new Error('preview missing');
-          const canvas = await html2canvas(node, { scale: 2 });
-          const imgData = canvas.toDataURL('image/png');
-          const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-          const width = pdf.internal.pageSize.getWidth();
-          const height = (canvas.height * width) / canvas.width;
-          pdf.addImage(imgData, 'PNG', 0, 0, width, height);
-          pdfBytes = new Uint8Array(pdf.output('arraybuffer'));
-        }
-      }
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'collatex.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      setCompileLog(String(e));
-    } finally {
-      setCompiling(false);
-    }
-  }, [texStr, token, compiling, previewRef]);
 
   const handleReady = useCallback(
     (text: Y.Text) => {
@@ -198,29 +142,7 @@ const EditorPage: React.FC = () => {
             <Share2 className="size-4" />
             Share
           </Button>
-          <Button
-            variant="default"
-            size="sm"
-            className="gap-1"
-            onClick={handleDownloadPdf}
-            disabled={compiling}
-            aria-busy={compiling}
-          >
-            {compiling ? (
-              'Compiling…'
-            ) : (
-              <>
-                <Download className="size-4" />
-                {isServerCompileEnabled ? 'Download PDF' : 'Export PDF'}
-              </>
-            )}
-          </Button>
-          {compileLog && (
-            <details className="ml-2 text-xs text-muted-foreground">
-              <summary>Show LaTeX log</summary>
-              <pre className="max-h-60 overflow-auto whitespace-pre-wrap text-foreground bg-card/80 p-2 rounded">{compileLog}</pre>
-            </details>
-          )}
+          <PdfExportButton getSource={() => texStr} previewRef={previewRef} />
         </div>
       </header>
       <main className="flex-1 h-full min-h-0 flex gap-4 p-4 bg-background">
