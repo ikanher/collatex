@@ -36,7 +36,7 @@ const EditorPage: React.FC = () => {
   }, [token]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || import.meta.env.MODE === 'test') return;
     const id = setInterval(refreshState, 5000);
     return () => clearInterval(id);
   }, [token]);
