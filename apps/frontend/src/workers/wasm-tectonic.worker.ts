@@ -82,7 +82,11 @@ self.onmessage = async (e: MessageEvent<CompileRequest>) => {
 
     log = [logs.join('\n'), log].filter(Boolean).join('\n');
 
-    self.postMessage({ ok: !!pdf?.length, pdf, log } as CompileResponse);
+    if (pdf && pdf.length > 0) {
+      self.postMessage({ ok: true, pdf, log } as CompileResponse, [pdf.buffer]);
+    } else {
+      self.postMessage({ ok: false, log } as CompileResponse);
+    }
   } catch (err) {
     self.postMessage({
       ok: false,
