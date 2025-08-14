@@ -19,7 +19,7 @@ export default defineConfig({
         "style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data:; " +
         "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-        `connect-src 'self' ${apiOrigin} ${wsOrigin} /latexwasm`,
+        `connect-src 'self' ${apiOrigin} ${wsOrigin}`,
     },
   },
 });

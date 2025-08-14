@@ -1,5 +1,4 @@
 import { toLatexDocument } from '@/lib/latexWasm';
-import { USE_STUB_ENGINE } from '@/lib/flags';
 
 interface CompileRequest {
   latex: string;
@@ -17,42 +16,19 @@ export interface CompileResponse {
 // Cache the WASM engine inside the worker so subsequent compiles avoid reloading.
 let enginePromise: Promise<unknown> | null = null;
 
-// Try to load the Tectonic engine. If it fails, fall back to the PdfTeXEngine
-// shipped under /public/latexwasm/.
+// Load the Tectonic engine from public assets. If loading fails, reject so the
+// caller can trigger the canvas fallback in the main thread.
 async function getEngine() {
   if (enginePromise) return enginePromise;
 
   enginePromise = (async () => {
-    if (USE_STUB_ENGINE) {
-      const { default: Stub } = await import('../mocks/PdfTeXEngine');
-      const eng = new Stub();
-      await eng.loadEngine?.();
-      return eng;
-    }
     try {
-      // @ts-expect-error - loaded from public assets at runtime
       const t = '/tectonic/tectonic_init.js';
       const initMod = await import(/* @vite-ignore */ t);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return await (initMod as any).default('/tectonic/tectonic.wasm');
     } catch {
-      // PdfTeXEngine is a non-module script; load via importScripts.
-      await new Promise<void>((resolve, reject) => {
-        try {
-          // eslint-disable-next-line no-restricted-globals
-          importScripts('/latexwasm/PdfTeXEngine.js');
-          resolve();
-        } catch (e) {
-          reject(e);
-        }
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const g: any = self as any;
-      const Ctor = g.PdfTeXEngine || g.LaTeXEngine || g.default;
-      if (!Ctor) throw new Error('PdfTeXEngine not found');
-      const engine = new Ctor();
-      await engine.loadEngine?.();
-      return engine;
+      throw new Error('tectonic_unavailable');
     }
   })();
 
@@ -95,11 +71,11 @@ self.onmessage = async (e: MessageEvent<CompileRequest>) => {
     } else {
       self.postMessage({ ok: false, log } as CompileResponse);
     }
-  } catch (err) {
+  } catch {
     self.postMessage({
       ok: false,
       log: logs.join('\n'),
-      error: String(err),
+      error: 'tectonic_unavailable',
     } as CompileResponse);
   }
 };

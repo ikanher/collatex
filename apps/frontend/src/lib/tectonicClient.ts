@@ -1,5 +1,4 @@
 import { ENABLE_WASM_TEX } from './flags';
-import { compilePdfTeX } from './latexWasm';
 import type { CompileResponse } from '@/workers/wasm-tectonic.worker';
 
 export interface CompileHooks {
@@ -16,8 +15,10 @@ export interface WorkerCompileResult {
 export async function compileLatexInWorker(hooks: CompileHooks): Promise<WorkerCompileResult> {
   const source = await hooks.getSource();
   if (!ENABLE_WASM_TEX) {
-    const r = await compilePdfTeX(source);
-    return { pdf: r.pdf, log: r.log || '' };
+    const err = new Error('wasm_tex_disabled');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (err as any).log = '';
+    throw err;
   }
 
   const WorkerCtor = (await import('@/workers/wasm-tectonic.worker?worker')).default;

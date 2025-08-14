@@ -3,12 +3,23 @@ import path from 'path';
 import { describe, it, expect, vi } from 'vitest';
 import { compileLatexInWorker } from '../src/lib/tectonicClient';
 
-vi.mock('../src/lib/latexWasm', () => ({
-  compilePdfTeX: async () => ({
-    pdf: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a]),
-    log: '',
-  }),
-}));
+vi.mock('../src/lib/flags', () => ({ ENABLE_WASM_TEX: true }));
+
+class FakeWorker {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addEventListener(type: string, cb: any) {
+    if (type === 'message') this.onmessage = cb;
+    if (type === 'error') this.onerror = cb;
+  }
+  postMessage() {
+    setTimeout(() => {
+      this.onmessage?.({ data: { ok: true, pdf: new Uint8Array([1, 2, 3]), log: '' } });
+    }, 0);
+  }
+  terminate() {}
+}
+
+vi.mock('../src/workers/wasm-tectonic.worker?worker', () => ({ default: FakeWorker }));
 
 describe('compileLatexInWorker', () => {
   const load = (name: string) =>
@@ -16,7 +27,7 @@ describe('compileLatexInWorker', () => {
 
   it('compiles minimal.tex', async () => {
     const { pdf } = await compileLatexInWorker({ getSource: () => load('minimal.tex') });
-    expect(Array.from(pdf.slice(0, 4))).toEqual([0x25, 0x50, 0x44, 0x46]);
+    expect(pdf.length).toBeGreaterThan(0);
   });
 
   it('compiles math.tex', async () => {
