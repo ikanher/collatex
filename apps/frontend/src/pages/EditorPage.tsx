@@ -142,7 +142,7 @@ const EditorPage: React.FC = () => {
             <Share2 className="size-4" />
             Share
           </Button>
-          <PdfExportButton getSource={() => texStr} previewRef={previewRef} />
+          <PdfExportButton getSource={() => texStr} />
         </div>
       </header>
       <main className="flex-1 h-full min-h-0 flex gap-4 p-4 bg-background">
