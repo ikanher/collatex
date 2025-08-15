@@ -2,13 +2,14 @@ import { describe, it, expect, vi } from 'vitest';
 import type { CompileResponse } from '../src/workers/wasm-tectonic.worker';
 
 vi.mock('../src/lib/flags', () => ({ ENABLE_WASM_TEX: true }));
-vi.mock('/tectonic/tectonic_init.js', () => ({
-  default: vi.fn(async () => ({
-    compileLaTeX: () => ({ pdf: new Uint8Array([1]), log: '' }),
-    writeMemFSFile: vi.fn(),
-    setEngineMainFile: vi.fn(),
-  })),
-}));
+vi.stubGlobal(
+  'fetch',
+  vi.fn(async () => ({
+    ok: true,
+    text: async () =>
+      "export default async () => ({ compileLaTeX: () => ({ pdf: new Uint8Array([1]), log: '' }), writeMemFSFile: () => {}, setEngineMainFile: () => {} })",
+  }))
+);
 
 describe('wasm-tectonic worker', () => {
   it('returns pdf bytes from engine', async () => {

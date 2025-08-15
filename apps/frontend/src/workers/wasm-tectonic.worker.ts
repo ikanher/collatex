@@ -24,7 +24,14 @@ async function getEngine() {
     try {
       const t = '/tectonic/tectonic_init.js';
       console.log('[Worker] Attempting to load Tectonic WASM from /tectonic/tectonic_init.js');
-      const initMod = await import(/* @vite-ignore */ t);
+      const resp = await fetch(t);
+      if (!resp.ok) {
+        throw new Error(resp.status === 404 ? 'tectonic_assets_missing' : 'tectonic_unavailable');
+      }
+      const source = await resp.text();
+      const initMod = await import(
+        /* @vite-ignore */ `data:text/javascript,${encodeURIComponent(source)}`
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const engine = await (initMod as any).default('/tectonic/tectonic.wasm');
       console.log('[Worker] Tectonic engine loaded successfully.');
@@ -32,7 +39,7 @@ async function getEngine() {
     } catch (e) {
       console.error('[Worker] Failed to load Tectonic WASM:', e);
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes('Failed to fetch') || msg.includes('404')) {
+      if (msg.includes('Failed to fetch') || msg.includes('404') || msg === 'tectonic_assets_missing') {
         throw new Error('tectonic_assets_missing');
       }
       throw new Error('tectonic_unavailable');
