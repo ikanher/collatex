@@ -1,22 +1,22 @@
 import React from 'react';
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { generatePdf } from '@/lib/pdfGenerator';
 
 interface Props {
   getSource: () => string;
-  previewRef: React.RefObject<HTMLElement>;
 }
 
-const PdfExportButton: React.FC<Props> = ({ getSource, previewRef }) => {
+const PdfExportButton: React.FC<Props> = ({ getSource }) => {
   const [busy, setBusy] = React.useState(false);
   const [status, setStatus] = React.useState('');
   const [log, setLog] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [dialogOpen, setDialogOpen] = React.useState(false);
 
   const handleClick = async () => {
     if (busy) return;
-    const previewEl = previewRef.current;
-    if (!previewEl) return;
     setBusy(true);
     setLog('');
     const enableWasmTex =
@@ -30,16 +30,10 @@ const PdfExportButton: React.FC<Props> = ({ getSource, previewRef }) => {
       ')'
     );
     console.log('[Export] Starting export. Using WASM path? ->', wasmEnabled);
-    if (!wasmEnabled) {
-      console.warn(
-        '[Export] Skipping WASM compile due to feature flag or env config. Falling back to screenshot export.'
-      );
-    }
     setStatus('Loading engine…');
     try {
       const res = await generatePdf({
         source: getSource(),
-        previewEl,
         onStatus: setStatus,
         wasmEnabled,
       });
@@ -52,13 +46,13 @@ const PdfExportButton: React.FC<Props> = ({ getSource, previewRef }) => {
         a.click();
         URL.revokeObjectURL(url);
       } else if (res.error) {
-        // eslint-disable-next-line no-alert
-        alert(res.error);
+        setError(res.error);
+        setDialogOpen(true);
       }
     } catch (err) {
       setLog(String(err));
-      // eslint-disable-next-line no-alert
-      alert('PDF generation failed');
+      setError('PDF generation failed');
+      setDialogOpen(true);
     } finally {
       setBusy(false);
       setStatus('');
@@ -75,6 +69,19 @@ const PdfExportButton: React.FC<Props> = ({ getSource, previewRef }) => {
           </>
         )}
       </Button>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>PDF export failed</DialogTitle>
+            <DialogDescription>{error}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {log && (
         <details className="mt-2 text-xs text-muted-foreground">
           <summary>View log</summary>

@@ -4,23 +4,6 @@ import { generatePdf } from '../src/lib/pdfGenerator';
 vi.mock('../src/lib/flags', () => ({ ENABLE_WASM_TEX: true }));
 vi.mock('../src/lib/compileAdapter', () => ({ compile: vi.fn(), isServerCompileEnabled: false }));
 
-vi.mock('html2canvas', () => ({ default: vi.fn() }));
-vi.mock('jspdf', () => {
-  const ctor = vi
-    .fn()
-    .mockImplementation(() => ({
-      internal: { pageSize: { getWidth: () => 100 } },
-      addImage: vi.fn(),
-      output: vi.fn(() => new ArrayBuffer(0)),
-    }));
-  return { default: ctor };
-});
-
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-const html2canvasMock = vi.mocked(html2canvas);
-const jsPDFMock = vi.mocked(jsPDF);
-
 let workerOk = true;
 class FakeWorker {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,28 +27,19 @@ vi.mock('../src/workers/wasm-tectonic.worker?worker', () => ({ default: FakeWork
 
 beforeEach(() => {
   workerOk = true;
-  html2canvasMock.mockReset();
-  jsPDFMock.mockClear();
 });
 
 describe('generatePdf', () => {
-  it('skips fallback when worker returns pdf', async () => {
-    const res = await generatePdf({ source: 'hi', previewEl: document.createElement('div'), wasmEnabled: true });
+  it('returns pdf when worker succeeds', async () => {
+    const res = await generatePdf({ source: 'hi', wasmEnabled: true });
     expect(res.via).toBe('wasm');
-    expect(html2canvasMock).not.toHaveBeenCalled();
   });
 
-  it('falls back to canvas when worker fails', async () => {
+  it('returns error when worker fails', async () => {
     workerOk = false;
-    html2canvasMock.mockResolvedValue({
-      width: 100,
-      height: 50,
-      toDataURL: () => 'data:image/png;base64,'
-    } as unknown as HTMLCanvasElement);
-    const res = await generatePdf({ source: 'hi', previewEl: document.createElement('div'), wasmEnabled: true });
-    expect(res.via).toBe('canvas');
-    expect(html2canvasMock).toHaveBeenCalled();
-    expect(res.log).toContain('⚠ Tectonic unavailable, falling back to screenshot export.');
+    const res = await generatePdf({ source: 'hi', wasmEnabled: true });
+    expect(res.error).toBeDefined();
+    expect(res.via).toBeUndefined();
   });
 });
 
