@@ -7,6 +7,7 @@ export interface GeneratePdfOptions {
   source: string;
   previewEl: HTMLElement;
   onStatus?: (msg: string) => void;
+  wasmEnabled: boolean;
 }
 
 export interface GeneratePdfResult {
@@ -16,18 +17,46 @@ export interface GeneratePdfResult {
   via: 'wasm' | 'server' | 'canvas';
 }
 
-export async function generatePdf({ source, previewEl, onStatus }: GeneratePdfOptions): Promise<GeneratePdfResult> {
+export async function generatePdf({ source, previewEl, onStatus, wasmEnabled }: GeneratePdfOptions): Promise<GeneratePdfResult> {
   onStatus?.('Loading engine…');
   await Promise.resolve();
   let log = '';
 
-  try {
-    onStatus?.('Compiling…');
-    const r = await compileLatexInWorker({ getSource: () => source });
-    return { blob: new Blob([r.pdf], { type: 'application/pdf' }), log: r.log, via: 'wasm' };
-  } catch (err) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    log = (err as any)?.log || '';
+  if (wasmEnabled) {
+    try {
+      onStatus?.('Compiling…');
+      const r = await compileLatexInWorker({ getSource: () => source });
+      console.log(
+        '[Export] WASM compile finished. PDF length:',
+        r.pdf?.length || 0,
+        'Log length:',
+        r.log?.length || 0
+      );
+      return { blob: new Blob([r.pdf], { type: 'application/pdf' }), log: r.log, via: 'wasm' };
+    } catch (err) {
+      console.error('[Export] WASM compile failed:', err);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      log = (err as any)?.log || '';
+      if ((err as Error).message === 'tectonic_assets_missing') {
+        console.error(
+          '[Export] Tectonic assets missing in build output. Check /tectonic/tectonic_init.js and /tectonic/tectonic.wasm.'
+        );
+        log = [
+          log,
+          '❌ Tectonic assets missing in build output. Screenshot export used instead.',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      } else {
+        log = [log, '⚠ Tectonic unavailable, falling back to screenshot export.']
+          .filter(Boolean)
+          .join('\n');
+      }
+    }
+  } else {
+    log = [log, '⚠ WASM compile skipped due to feature flag or config. Using screenshot export.']
+      .filter(Boolean)
+      .join('\n');
   }
 
   if (isServerCompileEnabled) {
@@ -43,9 +72,6 @@ export async function generatePdf({ source, previewEl, onStatus }: GeneratePdfOp
     }
   }
 
-  log = [log, '⚠ Tectonic unavailable, falling back to screenshot export.']
-    .filter(Boolean)
-    .join('\n');
   onStatus?.('Rendering preview…');
   const canvas = await html2canvas(previewEl, { scale: 2 });
   const imgData = canvas.toDataURL('image/png');

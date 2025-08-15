@@ -50,7 +50,7 @@ beforeEach(() => {
 
 describe('generatePdf', () => {
   it('skips fallback when worker returns pdf', async () => {
-    const res = await generatePdf({ source: 'hi', previewEl: document.createElement('div') });
+    const res = await generatePdf({ source: 'hi', previewEl: document.createElement('div'), wasmEnabled: true });
     expect(res.via).toBe('wasm');
     expect(html2canvasMock).not.toHaveBeenCalled();
   });
@@ -62,7 +62,7 @@ describe('generatePdf', () => {
       height: 50,
       toDataURL: () => 'data:image/png;base64,'
     } as unknown as HTMLCanvasElement);
-    const res = await generatePdf({ source: 'hi', previewEl: document.createElement('div') });
+    const res = await generatePdf({ source: 'hi', previewEl: document.createElement('div'), wasmEnabled: true });
     expect(res.via).toBe('canvas');
     expect(html2canvasMock).toHaveBeenCalled();
     expect(res.log).toContain('⚠ Tectonic unavailable, falling back to screenshot export.');

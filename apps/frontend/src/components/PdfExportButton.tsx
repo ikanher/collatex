@@ -19,9 +19,30 @@ const PdfExportButton: React.FC<Props> = ({ getSource, previewRef }) => {
     if (!previewEl) return;
     setBusy(true);
     setLog('');
+    const enableWasmTex =
+      import.meta.env.VITE_ENABLE_WASM_TEX ?? (import.meta.env.DEV ? 'true' : 'false');
+    const wasmEnabled = enableWasmTex === 'true';
+    console.log(
+      '[Export] WASM compile enabled:',
+      wasmEnabled,
+      '(env:',
+      import.meta.env.VITE_ENABLE_WASM_TEX,
+      ')'
+    );
+    console.log('[Export] Starting export. Using WASM path? ->', wasmEnabled);
+    if (!wasmEnabled) {
+      console.warn(
+        '[Export] Skipping WASM compile due to feature flag or env config. Falling back to screenshot export.'
+      );
+    }
     setStatus('Loading engine…');
     try {
-      const res = await generatePdf({ source: getSource(), previewEl, onStatus: setStatus });
+      const res = await generatePdf({
+        source: getSource(),
+        previewEl,
+        onStatus: setStatus,
+        wasmEnabled,
+      });
       if (res.log) setLog(res.log);
       if (res.blob) {
         const url = URL.createObjectURL(res.blob);
