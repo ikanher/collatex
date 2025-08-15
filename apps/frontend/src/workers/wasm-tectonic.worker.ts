@@ -29,6 +29,10 @@ async function getEngine() {
         throw new Error(resp.status === 404 ? 'tectonic_assets_missing' : 'tectonic_unavailable');
       }
       const source = await resp.text();
+      const type = resp.headers.get('content-type') || '';
+      if (!type.includes('javascript') || source.trim().startsWith('Not Found')) {
+        throw new Error('tectonic_assets_missing');
+      }
       const initMod = await import(
         /* @vite-ignore */ `data:text/javascript,${encodeURIComponent(source)}`
       );
