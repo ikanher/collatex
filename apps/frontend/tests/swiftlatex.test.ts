@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import path from 'path';
 import { describe, it, expect, vi } from 'vitest';
-import { compileLatexInWorker } from '../src/lib/tectonicClient';
+import { compileLatexInWorker } from '../src/lib/swiftlatexClient';
 
 vi.mock('../src/lib/flags', () => ({ ENABLE_WASM_TEX: true }));
 
@@ -19,7 +19,7 @@ class FakeWorker {
   terminate() {}
 }
 
-vi.mock('../src/workers/wasm-tectonic.worker?worker', () => ({ default: FakeWorker }));
+vi.mock('../src/workers/wasm-swiftlatex.worker?worker', () => ({ default: FakeWorker }));
 
 describe('compileLatexInWorker', () => {
   const load = (name: string) =>

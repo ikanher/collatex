@@ -16,14 +16,14 @@ class FakeWorker {
       if (workerOk) {
         this.onmessage?.({ data: { ok: true, pdf: new Uint8Array([1]), log: '' } });
       } else {
-        this.onmessage?.({ data: { ok: false, error: 'tectonic_unavailable', log: '' } });
+        this.onmessage?.({ data: { ok: false, error: 'swiftlatex_unavailable', log: '' } });
       }
     }, 0);
   }
   terminate() {}
 }
 
-vi.mock('../src/workers/wasm-tectonic.worker?worker', () => ({ default: FakeWorker }));
+vi.mock('../src/workers/wasm-swiftlatex.worker?worker', () => ({ default: FakeWorker }));
 
 beforeEach(() => {
   workerOk = true;

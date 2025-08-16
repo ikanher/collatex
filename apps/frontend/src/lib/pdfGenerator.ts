@@ -1,4 +1,4 @@
-import { compileLatexInWorker } from './tectonicClient';
+import { compileLatexInWorker } from './swiftlatexClient';
 import { compile as serverCompile, isServerCompileEnabled } from './compileAdapter';
 
 export interface GeneratePdfOptions {
@@ -34,7 +34,7 @@ export async function generatePdf({ source, onStatus, wasmEnabled }: GeneratePdf
       console.error('[Export] WASM compile failed:', err);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       log = (err as any)?.log || '';
-      return { error: 'Tectonic PDF engine unavailable.', log };
+      return { error: 'SwiftLaTeX PDF engine unavailable.', log };
     }
   } else {
     log = [log, '⚠ WASM compile disabled via feature flag or config.']
@@ -55,5 +55,5 @@ export async function generatePdf({ source, onStatus, wasmEnabled }: GeneratePdf
     }
   }
 
-  return { error: 'Tectonic PDF engine unavailable.', log };
+  return { error: 'SwiftLaTeX PDF engine unavailable.', log };
 }

@@ -15,38 +15,38 @@ export interface CompileResponse {
 // Cache the WASM engine inside the worker so subsequent compiles avoid reloading.
 let enginePromise: Promise<unknown> | null = null;
 
-// Load the Tectonic engine from public assets. If loading fails, reject so the
+// Load the SwiftLaTeX engine from public assets. If loading fails, reject so the
 // caller can trigger the canvas fallback in the main thread.
 async function getEngine() {
   if (enginePromise) return enginePromise;
 
   enginePromise = (async () => {
     try {
-      const t = '/tectonic/tectonic_init.js';
-      console.log('[Worker] Attempting to load Tectonic WASM from /tectonic/tectonic_init.js');
+      const t = '/swiftlatex/PdfTeXEngine.js';
+      console.log('[Worker] Attempting to load SwiftLaTeX from', t);
       const resp = await fetch(t);
       if (!resp.ok) {
-        throw new Error(resp.status === 404 ? 'tectonic_assets_missing' : 'tectonic_unavailable');
+        throw new Error(resp.status === 404 ? 'swiftlatex_assets_missing' : 'swiftlatex_unavailable');
       }
       const source = await resp.text();
-      const type = resp.headers.get('content-type') || '';
-      if (!type.includes('javascript') || source.trim().startsWith('Not Found')) {
-        throw new Error('tectonic_assets_missing');
+      if (source.trim().startsWith('Not Found')) {
+        throw new Error('swiftlatex_assets_missing');
       }
       const initMod = await import(
-        /* @vite-ignore */ `data:text/javascript,${encodeURIComponent(source)}`
+        /* @vite-ignore */ `data:text/javascript,${encodeURIComponent(source + '\nexport default PdfTeXEngine;')}`
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const engine = await (initMod as any).default('/tectonic/tectonic.wasm');
-      console.log('[Worker] Tectonic engine loaded successfully.');
+      const engine: any = new initMod.default();
+      await engine.loadEngine?.();
+      console.log('[Worker] SwiftLaTeX engine loaded successfully.');
       return engine;
     } catch (e) {
-      console.error('[Worker] Failed to load Tectonic WASM:', e);
+      console.error('[Worker] Failed to load SwiftLaTeX:', e);
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes('Failed to fetch') || msg.includes('404') || msg === 'tectonic_assets_missing') {
-        throw new Error('tectonic_assets_missing');
+      if (msg.includes('Failed to fetch') || msg.includes('404') || msg === 'swiftlatex_assets_missing') {
+        throw new Error('swiftlatex_assets_missing');
       }
-      throw new Error('tectonic_unavailable');
+      throw new Error('swiftlatex_unavailable');
     }
   })();
 
@@ -74,13 +74,12 @@ self.onmessage = async (e: MessageEvent<CompileRequest>) => {
     if (pdf && pdf.length) {
       self.postMessage({ ok: true, pdf, log } as CompileResponse, [pdf.buffer]);
     } else {
-      self.postMessage({ ok: false, log, error: 'tectonic_unavailable' } as CompileResponse);
+      self.postMessage({ ok: false, log, error: 'swiftlatex_unavailable' } as CompileResponse);
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'tectonic_unavailable';
+    const msg = err instanceof Error ? err.message : 'swiftlatex_unavailable';
     self.postMessage({ ok: false, log: logs.join('\n'), error: msg } as CompileResponse);
   }
 };
 
 export default {} as unknown as Worker;
-
