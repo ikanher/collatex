@@ -146,7 +146,7 @@ const EditorPage: React.FC = () => {
         </div>
       </header>
       <main className="flex-1 h-full min-h-0 flex gap-4 p-4 bg-background">
-        <section className="flex-1 h-full min-h-0 flex flex-col rounded-xl border border-border bg-card shadow-soft">
+        <section className="flex-1 h-full min-h-0 flex flex-col rounded-sm border border-border bg-card shadow-soft">
           <div className="flex-1 min-h-0 p-2">
             <CodeMirror
               token={token}
@@ -161,7 +161,7 @@ const EditorPage: React.FC = () => {
             />
           </div>
         </section>
-        <aside className="flex-1 h-full min-h-0 rounded-xl border border-border bg-card shadow-soft p-2 overflow-auto" ref={previewRef}>
+        <aside className="flex-1 h-full min-h-0 rounded-sm border border-border bg-card shadow-soft p-2 overflow-auto" ref={previewRef}>
           <MathJaxPreview source={texStr.trim() ? texStr : SEED_HINT} />
         </aside>
       </main>
