@@ -1,5 +1,5 @@
 # Security Notes
 
-- LaTeX compilation with SwiftLaTeX runs entirely inside a Web Worker.
-- The worker has no network access except optional package mirrors configured at build time.
-- No server-side execution occurs; PDFs are produced client-side only.
+- LaTeX sources are sent to the SwiftLaTeX service for PDF compilation.
+- Only the presence of the SwiftLaTeX token is logged, never its value.
+- If the remote service is unreachable the client falls back to a screenshot export.

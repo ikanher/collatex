@@ -63,16 +63,26 @@ Open `http://localhost:5173` and click **New Project**. Share the `/p/<token>`
 URL with a second tab to see real-time edits. The editor renders LaTeX directly
 in the browser via MathJax and exports PDFs client-side.
 
-### WASM LaTeX (SwiftLaTeX)
+### Remote SwiftLaTeX PDF compilation
 
-To enable experimental SwiftLaTeX-on-WASM compilation:
+The **Export PDF** button sends the current document to a remote SwiftLaTeX
+service which returns the compiled PDF. Configure the endpoint and token via
+environment variables:
 
-1. Run `./scripts/fetch-swiftlatex-assets.sh` to download the wasm engine.
-2. Set `VITE_ENABLE_WASM_TEX=true` in your `.env`.
+```
+VITE_SWIFTLATEX_ORIGIN=https://api.swiftlatex.com
+VITE_SWIFTLATEX_TOKEN=your-token
+# Optional
+VITE_SWIFTLATEX_TIMEOUT_MS=60000
+VITE_SWIFTLATEX_RETRIES=2
+```
 
-When enabled, the **Export PDF** button compiles the current buffer inside a
-Web Worker and downloads a PDF without any server dependency. The initial
-bundle is lazy-loaded to keep the main app lightweight.
+In development the defaults point to a local mock server. Source text is sent
+over the network to the SwiftLaTeX service—do not enable this feature for
+documents containing sensitive information.
+
+If the remote compile fails, the app logs the HTTP status and falls back to a
+screenshot-based export.
 
 ## Architecture
 ```mermaid
@@ -85,7 +95,15 @@ graph TD
 ## Security model
 The Vite dev server relaxes the Content Security Policy to permit inline scripts and `eval` for tooling like React Refresh. Production builds remain locked down, relying on the strict CSP defined in `apps/frontend/nginx.conf`.
 
+### Troubleshooting SwiftLaTeX
+
+| Status | Cause | Fix |
+|--------|-------|-----|
+| 401 | Invalid or missing token | Set `VITE_SWIFTLATEX_TOKEN` |
+| 404 | Wrong endpoint | Check `VITE_SWIFTLATEX_ORIGIN` |
+| 429 | Rate limited | Retry later; increase `VITE_SWIFTLATEX_RETRIES` |
+| 500 | Server error | Retry or contact SwiftLaTeX |
+
 ## Security TODO
 - Replace the temporary `better-xss` sanitiser with an AST-based policy.
 - Harden the Content Security Policy.
-- Keep PDF export in sync with SwiftLaTeX WASM releases.

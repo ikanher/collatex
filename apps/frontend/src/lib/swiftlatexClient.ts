@@ -1,47 +1,79 @@
-import { ENABLE_WASM_TEX } from './flags';
-import type { CompileResponse } from '@/workers/wasm-swiftlatex.worker';
+import { SWIFTLATEX_ORIGIN, SWIFTLATEX_TOKEN, SWIFTLATEX_TIMEOUT_MS, SWIFTLATEX_RETRIES } from '@/config';
 
-export interface CompileHooks {
-  getSource: () => Promise<string> | string;
-  listProjectFiles?: () => Promise<string[]> | string[];
-  readFile?: (path: string) => Promise<Uint8Array>;
+export interface CompileRequest {
+  mainTex: string;
+  files?: Record<string, Uint8Array>;
 }
 
-export interface WorkerCompileResult {
-  pdf: Uint8Array;
-  log: string;
+export type CompileResult =
+  | { ok: true; pdf: Uint8Array; log?: string }
+  | { ok: false; error: string; log?: string; status?: number };
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function compileLatexInWorker(hooks: CompileHooks): Promise<WorkerCompileResult> {
-  const source = await hooks.getSource();
-  if (!ENABLE_WASM_TEX) {
-    const err = new Error('wasm_tex_disabled');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (err as any).log = '';
-    throw err;
-  }
-
-  const WorkerCtor = (await import('@/workers/wasm-swiftlatex.worker?worker')).default;
-  const worker: Worker = new WorkerCtor();
-
+async function doCompile(
+  req: CompileRequest,
+  signal: AbortSignal
+): Promise<CompileResult> {
+  const body = JSON.stringify({ main: req.mainTex, files: req.files ?? {} });
   try {
-    const res = await new Promise<CompileResponse>((resolve, reject) => {
-      const messageHandler = (e: MessageEvent<CompileResponse>) => resolve(e.data);
-      const errorHandler = (err: ErrorEvent) => reject(new Error(err.message));
-      worker.addEventListener('message', messageHandler, { once: true });
-      worker.addEventListener('error', errorHandler, { once: true });
-      worker.postMessage({ latex: source, engineOpts: {} });
+    const res = await fetch(`${SWIFTLATEX_ORIGIN}/compile`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SWIFTLATEX_TOKEN}`,
+      },
+      body,
+      signal,
     });
-
-    if (!res.ok || !res.pdf?.length) {
-      const err = new Error(res.error || 'WASM compile failed');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (err as any).log = res.log;
-      throw err;
+    const status = res.status;
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      const truncated = text.slice(0, 200);
+      return { ok: false, error: truncated || `HTTP ${status}`, status };
     }
-
-    return { pdf: res.pdf, log: res.log };
-  } finally {
-    worker.terminate();
+    const buf = await res.arrayBuffer();
+    const log = res.headers.get('x-tex-log') ?? undefined;
+    return { ok: true, pdf: new Uint8Array(buf), log };
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') {
+      return { ok: false, error: 'timeout' };
+    }
+    return { ok: false, error: 'network_error' };
   }
+}
+
+export function compile(req: CompileRequest) {
+  const outer = new AbortController();
+  const retries = Math.max(0, SWIFTLATEX_RETRIES);
+  const timeoutMs = Math.max(1, SWIFTLATEX_TIMEOUT_MS);
+
+  const run = async (): Promise<CompileResult> => {
+    let attempt = 0;
+    while (true) {
+      const attemptCtrl = new AbortController();
+      const onAbort = () => attemptCtrl.abort();
+      outer.signal.addEventListener('abort', onAbort);
+      const timer = setTimeout(() => attemptCtrl.abort(), timeoutMs);
+      const res = await doCompile(req, attemptCtrl.signal);
+      clearTimeout(timer);
+      outer.signal.removeEventListener('abort', onAbort);
+      if (outer.signal.aborted) {
+        return { ok: false, error: 'timeout' };
+      }
+      if (
+        res.ok ||
+        !(res.status && (res.status === 429 || res.status >= 500)) ||
+        attempt >= retries
+      ) {
+        return res;
+      }
+      attempt++;
+      await sleep(2 ** attempt * 1000);
+    }
+  };
+
+  return { controller: outer, promise: run() };
 }

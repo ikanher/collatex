@@ -15,47 +15,37 @@ const PdfExportButton: React.FC<Props> = ({ getSource }) => {
   const [error, setError] = React.useState('');
   const [dialogOpen, setDialogOpen] = React.useState(false);
 
+  const controllerRef = React.useRef<AbortController | null>(null);
+  const opRef = React.useRef(0);
+
   const handleClick = async () => {
-    if (busy) return;
+    opRef.current += 1;
+    const myOp = opRef.current;
+    controllerRef.current?.abort();
     setBusy(true);
     setLog('');
-    const enableWasmTex =
-      import.meta.env.VITE_ENABLE_WASM_TEX ?? (import.meta.env.DEV ? 'true' : 'false');
-    const wasmEnabled = enableWasmTex === 'true';
-    console.log(
-      '[Export] WASM compile enabled:',
-      wasmEnabled,
-      '(env:',
-      import.meta.env.VITE_ENABLE_WASM_TEX,
-      ')'
-    );
-    console.log('[Export] Starting export. Using WASM path? ->', wasmEnabled);
-    setStatus('Loading engine…');
     try {
-      const res = await generatePdf({
-        source: getSource(),
-        onStatus: setStatus,
-        wasmEnabled,
-      });
+      const { controller, result } = generatePdf({ source: getSource(), onStatus: setStatus });
+      controllerRef.current = controller;
+      const res = await result;
+      if (opRef.current !== myOp) return;
       if (res.log) setLog(res.log);
-      if (res.blob) {
-        const url = URL.createObjectURL(res.blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'document.pdf';
-        a.click();
-        URL.revokeObjectURL(url);
-      } else if (res.error) {
-        setError(res.error);
-        setDialogOpen(true);
-      }
+      const url = URL.createObjectURL(res.blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'document.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
+      if (opRef.current !== myOp) return;
       setLog(String(err));
       setError('PDF generation failed');
       setDialogOpen(true);
     } finally {
-      setBusy(false);
-      setStatus('');
+      if (opRef.current === myOp) {
+        setBusy(false);
+        setStatus('');
+      }
     }
   };
 
