@@ -1,5 +1,5 @@
 import { ENABLE_WASM_TEX } from './flags';
-import type { CompileResponse } from '@/workers/wasm-tectonic.worker';
+import type { CompileResponse } from '@/workers/wasm-swiftlatex.worker';
 
 export interface CompileHooks {
   getSource: () => Promise<string> | string;
@@ -21,7 +21,7 @@ export async function compileLatexInWorker(hooks: CompileHooks): Promise<WorkerC
     throw err;
   }
 
-  const WorkerCtor = (await import('@/workers/wasm-tectonic.worker?worker')).default;
+  const WorkerCtor = (await import('@/workers/wasm-swiftlatex.worker?worker')).default;
   const worker: Worker = new WorkerCtor();
 
   try {

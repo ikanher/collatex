@@ -1,5 +1,0 @@
-{
-  "note": "Packages and fonts fetched via scripts/fetch-tectonic-assets.sh",
-  "packages": ["article", "amsmath", "geometry", "graphicx", "url", "hyperref"],
-  "fonts": ["Latin Modern"]
-}
