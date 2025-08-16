@@ -4,7 +4,7 @@ import './index.css';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import EditorPage from './pages/EditorPage';
 import { logDebug } from './debug';
-import { API_URL } from './config';
+import { API_URL, checkSwiftlatexConfig } from './config';
 
 function AutoCreate() {
   React.useEffect(() => {
@@ -34,3 +34,4 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
 );
 
 logDebug('app started');
+checkSwiftlatexConfig();

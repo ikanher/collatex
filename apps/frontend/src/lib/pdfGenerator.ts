@@ -1,59 +1,42 @@
-import { compileLatexInWorker } from './tectonicClient';
-import { compile as serverCompile, isServerCompileEnabled } from './compileAdapter';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { compile } from './compileAdapter';
 
 export interface GeneratePdfOptions {
   source: string;
   onStatus?: (msg: string) => void;
-  wasmEnabled: boolean;
 }
 
 export interface GeneratePdfResult {
-  blob?: Blob;
+  blob: Blob;
   log?: string;
-  error?: string;
-  via?: 'wasm' | 'server';
+  via: 'remote' | 'screenshot';
 }
 
-export async function generatePdf({ source, onStatus, wasmEnabled }: GeneratePdfOptions): Promise<GeneratePdfResult> {
-  onStatus?.('Loading engine…');
-  await Promise.resolve();
-  let log = '';
+async function screenshotPdf(): Promise<Blob> {
+  const canvas = await html2canvas(document.body);
+  const img = canvas.toDataURL('image/png');
+  const pdf = new jsPDF('p', 'pt', [canvas.width, canvas.height]);
+  pdf.addImage(img, 'PNG', 0, 0, canvas.width, canvas.height);
+  return pdf.output('blob');
+}
 
-  if (wasmEnabled) {
-    try {
-      onStatus?.('Compiling…');
-      const r = await compileLatexInWorker({ getSource: () => source });
-      console.log(
-        '[Export] WASM compile finished. PDF length:',
-        r.pdf?.length || 0,
-        'Log length:',
-        r.log?.length || 0
-      );
-      return { blob: new Blob([r.pdf], { type: 'application/pdf' }), log: r.log, via: 'wasm' };
-    } catch (err) {
-      console.error('[Export] WASM compile failed:', err);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      log = (err as any)?.log || '';
-      return { error: 'Tectonic PDF engine unavailable.', log };
+export function generatePdf({ source, onStatus }: GeneratePdfOptions) {
+  onStatus?.('Compiling…');
+  const { controller, result } = compile(source);
+  const wrapped = result.then(async (res) => {
+    if (res.ok && res.pdf) {
+      return {
+        blob: new Blob([res.pdf], { type: 'application/pdf' }),
+        log: res.log,
+        via: 'remote' as const,
+      };
     }
-  } else {
-    log = [log, '⚠ WASM compile disabled via feature flag or config.']
-      .filter(Boolean)
-      .join('\n');
-  }
-
-  if (isServerCompileEnabled) {
-    onStatus?.('Compiling on server…');
-    try {
-      const res = await serverCompile(source);
-      if (res.ok && res.pdf) {
-        return { blob: new Blob([res.pdf], { type: 'application/pdf' }), log: res.log || log, via: 'server' };
-      }
-      log = res.log || log;
-    } catch {
-      /* ignore */
-    }
-  }
-
-  return { error: 'Tectonic PDF engine unavailable.', log };
+    const warn = `⚠ Remote compile failed (reason: ${res.error}). Falling back to screenshot export.`;
+    const log = [res.log, warn].filter(Boolean).join('\n');
+    onStatus?.('Rendering screenshot…');
+    const blob = await screenshotPdf();
+    return { blob, log, via: 'screenshot' as const };
+  });
+  return { controller, result: wrapped };
 }
