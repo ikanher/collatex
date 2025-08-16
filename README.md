@@ -63,12 +63,11 @@ Open `http://localhost:5173` and click **New Project**. Share the `/p/<token>`
 URL with a second tab to see real-time edits. The editor renders LaTeX directly
 in the browser via MathJax and exports PDFs client-side.
 
-### WASM LaTeX (Tectonic)
+### WASM LaTeX (SwiftLaTeX)
 
-To enable experimental Tectonic-on-WASM compilation:
+To enable experimental SwiftLaTeX-on-WASM compilation:
 
-1. Run `./scripts/fetch-tectonic-assets.sh` to download the wasm engine and
-   local TeX bundle.
+1. Run `./scripts/fetch-swiftlatex-assets.sh` to download the wasm engine.
 2. Set `VITE_ENABLE_WASM_TEX=true` in your `.env`.
 
 When enabled, the **Export PDF** button compiles the current buffer inside a
@@ -89,4 +88,4 @@ The Vite dev server relaxes the Content Security Policy to permit inline scripts
 ## Security TODO
 - Replace the temporary `better-xss` sanitiser with an AST-based policy.
 - Harden the Content Security Policy.
-- Bring back PDF export once Tectonic-WASM lands.
+- Keep PDF export in sync with SwiftLaTeX WASM releases.
