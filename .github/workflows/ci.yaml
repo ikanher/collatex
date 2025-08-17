@@ -31,6 +31,9 @@ jobs:
           cache: 'npm'
       - name: Install deps
         run: npm ci
+      - name: Fetch BusyTeX assets
+        run: npm run fetch:busytex --workspace apps/frontend -- --offline-ok
+        # CI may run in environments without egress; allow missing assets
       - name: Lint and Test
         run: |
           npm run lint --workspace apps/frontend

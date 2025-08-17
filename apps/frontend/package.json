@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run fetch:busytex && vite",
     "build": "vite build",
     "lint": "eslint -c .eslintrc.json \"src/**/*.{ts,tsx}\" --max-warnings=0",
     "test": "cross-env CI=1 vitest run --reporter=basic",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "fetch:busytex": "node ../../scripts/fetch_busytex_assets.js"
   },
   "dependencies": {
     "@codemirror/commands": "^6.8.1",

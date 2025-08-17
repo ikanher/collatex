@@ -26,3 +26,4 @@ var/
 *.pdf
 !backend/compile-service/static/placeholder.pdf
 *.log
+apps/frontend/public/vendor/busytex/
