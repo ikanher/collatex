@@ -1,13 +1,15 @@
+declare const process: { env?: Record<string, string | undefined> };
+
 export async function compileWithSwiftLatex(
   source: string,
   opts?: { engine?: 'xetex' | 'pdftex'; timeoutMs?: number }
 ): Promise<Blob> {
-  const env = (typeof import.meta !== 'undefined' ? ((import.meta as any).env as Record<string, string>) : {}) as Record<
-    string,
-    string
-  >;
-  const origin = env.VITE_SWIFTLATEX_ORIGIN || (process.env as any).VITE_SWIFTLATEX_ORIGIN;
-  const token = env.VITE_SWIFTLATEX_TOKEN || (process.env as any).VITE_SWIFTLATEX_TOKEN;
+  const env =
+    typeof import.meta !== 'undefined'
+      ? (import.meta as { env: Record<string, string> }).env
+      : ({} as Record<string, string>);
+  const origin = env.VITE_SWIFTLATEX_ORIGIN || process.env?.VITE_SWIFTLATEX_ORIGIN;
+  const token = env.VITE_SWIFTLATEX_TOKEN || process.env?.VITE_SWIFTLATEX_TOKEN;
   if (!origin || !token) {
     throw new Error(
       'SwiftLaTeX isn\u2019t configured. Set VITE_SWIFTLATEX_ORIGIN and VITE_SWIFTLATEX_TOKEN in your environment and reload.'
@@ -15,7 +17,7 @@ export async function compileWithSwiftLatex(
   }
   const timeoutMs =
     opts?.timeoutMs ??
-    Number(env.VITE_SWIFTLATEX_TIMEOUT_MS || (process.env as any).VITE_SWIFTLATEX_TIMEOUT_MS || '60000');
+    Number(env.VITE_SWIFTLATEX_TIMEOUT_MS || process.env?.VITE_SWIFTLATEX_TIMEOUT_MS || '60000');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
