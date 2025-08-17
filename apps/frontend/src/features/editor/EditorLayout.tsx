@@ -18,7 +18,7 @@ export default function EditorLayout() {
             {/* Preview toolbar */}
           </div>
           <div className='flex-1 min-h-0 overflow-auto'>
-            {/* PDF header + iframe + log drawer */}
+            {/* Preview content */}
           </div>
         </div>
       </section>

@@ -9,9 +9,7 @@
     "test": "npm run -s test:frontend && npm run -s test:gateway",
     "test:frontend": "npm run test --workspace apps/frontend",
     "test:gateway": "npm run test --workspace apps/collab_gateway",
-    "test:ci": "npm run -s test",
-    "fetch:busytex": "node scripts/fetch_busytex_assets.js",
-    "postinstall": "npm run fetch:busytex --workspace apps/frontend"
+    "test:ci": "npm run -s test"
   },
   "devDependencies": {
     "cross-env": "^7.0.3"
