@@ -63,21 +63,19 @@ Open `http://localhost:5173` and click **New Project**. Share the `/p/<token>`
 URL with a second tab to see real-time edits. The editor renders LaTeX directly
 in the browser via MathJax and exports PDFs client-side.
 
-### Remote SwiftLaTeX PDF compilation
+### In-browser WASM PDF export
 
-The **Export PDF** button sends the current document to a remote SwiftLaTeX
-service which returns the compiled PDF. Configure the endpoint and token via
-environment variables:
+The **Export PDF** button runs BusyTeX (TeXLive compiled to WASM) directly in the
+browser. No source leaves your machine. Fetch the required assets once:
 
 ```
-VITE_SWIFTLATEX_ORIGIN=
-VITE_SWIFTLATEX_TOKEN=
-VITE_SWIFTLATEX_TIMEOUT_MS=60000
+npm run fetch:busytex
 ```
 
-`xetex` is used by default; pass `{ engine: 'pdftex' }` to the client to use the
-classic engine. Source text is sent over the network to the SwiftLaTeX service—
-do not enable this feature for documents containing sensitive information.
+This downloads large WASM/data files into `apps/frontend/public/vendor/busytex/`
+(gitignored). `xetex` is used by default; pass `{ engine: 'pdftex' }` as an
+option to use the classic engine. Package coverage includes texlive-basic,
+latex-extra, latex-recommended, and science.
 
 ## Architecture
 ```mermaid
@@ -90,15 +88,13 @@ graph TD
 ## Security model
 The Vite dev server relaxes the Content Security Policy to permit inline scripts and `eval` for tooling like React Refresh. Production builds remain locked down, relying on the strict CSP defined in `apps/frontend/nginx.conf`.
 
-### Troubleshooting SwiftLaTeX
+### Troubleshooting BusyTeX
 
-| Status | Cause | Fix |
-|--------|-------|-----|
-| 401 | Invalid or missing token | Set `VITE_SWIFTLATEX_TOKEN` |
-| 404 | Wrong endpoint/path | Check `VITE_SWIFTLATEX_ORIGIN` |
-| 429 | Rate limited | Retry later |
-| 5xx | Service error | Retry or contact SwiftLaTeX |
-| timeout | Request timed out | Increase `VITE_SWIFTLATEX_TIMEOUT_MS` or retry |
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| 404/blocked | Assets missing or not served | Run `npm run fetch:busytex`; check dev server origin/CSP |
+| Init timeout | Large first load or wrong MIME | Ensure `.wasm` served as `application/wasm` and assets exist |
+| Missing fonts/packages | Data pack absent | Add more BusyTeX data packs and update fetch script |
 
 ## Security TODO
 - Replace the temporary `better-xss` sanitiser with an AST-based policy.
