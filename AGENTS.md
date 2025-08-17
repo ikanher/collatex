@@ -48,13 +48,13 @@ _Last updated: 2025-07-26_
 - `npm --prefix apps/collab_gateway run ws` starts a server and logs connections.
 
 ## 3) Frontend Agent (React/TS)
-**Goal**: Editor + PDF export.
+**Goal**: Editor with MathJax preview.
 
 **Deliverables**
 - CodeMirror 6 + Yjs client; presence cursors; MathJax preview.
 
 **Acceptance**
-- Type → state syncs via Yjs; Export button captures preview to PDF.
+- Type → state syncs via Yjs and renders via MathJax.
 
 ## 4) QA Agent
 **Goal**: Tests.

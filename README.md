@@ -19,7 +19,6 @@ Goal: Editor + MathJax preview
 Tasks:
 - Editor page using CodeMirror 6 + Yjs
 - Presence cursors
-- Client-side PDF export
 
 ## 4) QA Agent
 Goal: Testing across services
@@ -61,21 +60,7 @@ work correctly.
 ```
 Open `http://localhost:5173` and click **New Project**. Share the `/p/<token>`
 URL with a second tab to see real-time edits. The editor renders LaTeX directly
-in the browser via MathJax and exports PDFs client-side.
-
-### In-browser PDF (BusyTeX WASM)
-
-Fetch the BusyTeX assets once:
-
-```
-npm run fetch:busytex
-```
-
-The fetch script automatically resolves and caches the latest BusyTeX release tag
-into `.busytex-tag`. Use `--fresh` to re-resolve.
-
-Large WASM/data files are downloaded into `apps/frontend/public/vendor/busytex/`
-(gitignored).
+in the browser via MathJax.
 
 ## Architecture
 ```mermaid
@@ -87,14 +72,6 @@ graph TD
 
 ## Security model
 The Vite dev server relaxes the Content Security Policy to permit inline scripts and `eval` for tooling like React Refresh. Production builds remain locked down, relying on the strict CSP defined in `apps/frontend/nginx.conf`.
-
-### Troubleshooting BusyTeX
-
-| Issue | Cause | Fix |
-|-------|-------|-----|
-| 404/blocked | Assets missing or not served | Run `npm run fetch:busytex`; check dev server origin/CSP |
-| Init timeout | Large first load or wrong MIME | Ensure `.wasm` served as `application/wasm` and assets exist |
-| Missing fonts/packages | Data pack absent | Add more BusyTeX data packs and update fetch script |
 
 ## Security TODO
 - Replace the temporary `better-xss` sanitiser with an AST-based policy.

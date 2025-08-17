@@ -6,7 +6,6 @@ import { useProject } from '../hooks/useProject';
 import MathJaxPreview from '../components/MathJaxPreview';
 import { API_URL } from '../config';
 import { logDebug } from '../debug';
-import PdfExportButton from '@/components/PdfExportButton';
 import { Button } from '@/components/ui/button';
 
 const SEED_HINT = 'Type TeX math like \\(' + 'e^{i\\pi}+1=0' + '\\) or $$\\int_0^1 x^2\\,dx$$';
@@ -142,7 +141,6 @@ const EditorPage: React.FC = () => {
             <Share2 className="size-4" />
             Share
           </Button>
-          <PdfExportButton getSource={() => texStr} />
         </div>
       </header>
       <main className="flex-1 h-full min-h-0 flex gap-4 p-4 bg-background">

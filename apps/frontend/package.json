@@ -3,12 +3,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run fetch:busytex && vite",
+    "dev": "vite",
     "build": "vite build",
     "lint": "eslint -c .eslintrc.json \"src/**/*.{ts,tsx}\" --max-warnings=0",
     "test": "cross-env CI=1 vitest run --reporter=basic",
-    "typecheck": "tsc --noEmit",
-    "fetch:busytex": "node ../../scripts/fetch_busytex_assets.js"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@codemirror/commands": "^6.8.1",
@@ -29,8 +28,6 @@
     "clsx": "^2.1.1",
     "codemirror-lang-latex": "^0.1.0-alpha.2",
     "framer-motion": "^12.23.12",
-    "html2canvas": "^1.4.1",
-    "jspdf": "^3.0.1",
     "lucide-react": "^0.539.0",
     "mathjax-full": "^3.2.2",
     "react": "^18.2.0",
