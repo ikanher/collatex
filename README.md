@@ -70,19 +70,14 @@ service which returns the compiled PDF. Configure the endpoint and token via
 environment variables:
 
 ```
-VITE_SWIFTLATEX_ORIGIN=https://api.swiftlatex.com
-VITE_SWIFTLATEX_TOKEN=your-token
-# Optional
+VITE_SWIFTLATEX_ORIGIN=
+VITE_SWIFTLATEX_TOKEN=
 VITE_SWIFTLATEX_TIMEOUT_MS=60000
-VITE_SWIFTLATEX_RETRIES=2
 ```
 
-In development the defaults point to a local mock server. Source text is sent
-over the network to the SwiftLaTeX service—do not enable this feature for
-documents containing sensitive information.
-
-If the remote compile fails, the app logs the HTTP status and falls back to a
-screenshot-based export.
+`xetex` is used by default; pass `{ engine: 'pdftex' }` to the client to use the
+classic engine. Source text is sent over the network to the SwiftLaTeX service—
+do not enable this feature for documents containing sensitive information.
 
 ## Architecture
 ```mermaid
@@ -100,9 +95,10 @@ The Vite dev server relaxes the Content Security Policy to permit inline scripts
 | Status | Cause | Fix |
 |--------|-------|-----|
 | 401 | Invalid or missing token | Set `VITE_SWIFTLATEX_TOKEN` |
-| 404 | Wrong endpoint | Check `VITE_SWIFTLATEX_ORIGIN` |
-| 429 | Rate limited | Retry later; increase `VITE_SWIFTLATEX_RETRIES` |
-| 500 | Server error | Retry or contact SwiftLaTeX |
+| 404 | Wrong endpoint/path | Check `VITE_SWIFTLATEX_ORIGIN` |
+| 429 | Rate limited | Retry later |
+| 5xx | Service error | Retry or contact SwiftLaTeX |
+| timeout | Request timed out | Increase `VITE_SWIFTLATEX_TIMEOUT_MS` or retry |
 
 ## Security TODO
 - Replace the temporary `better-xss` sanitiser with an AST-based policy.
