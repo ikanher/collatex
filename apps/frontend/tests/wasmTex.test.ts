@@ -11,9 +11,8 @@ describe('wasmTex', () => {
     class MockWorker {
       onmessage: ((ev: any) => void) | null = null;
       postMessage(msg: any) {
-        // init message
         if (!msg.id) {
-          setTimeout(() => this.onmessage?.({ data: {} }));
+          setTimeout(() => this.onmessage?.({ data: { type: 'ready' } }));
         } else {
           setTimeout(() => this.onmessage?.({ data: { id: msg.id, pdf } }));
         }
@@ -35,7 +34,7 @@ describe('wasmTex', () => {
       onmessage: ((ev: any) => void) | null = null;
       postMessage(msg: any) {
         if (!msg.id) {
-          setTimeout(() => this.onmessage?.({ data: {} }));
+          setTimeout(() => this.onmessage?.({ data: { type: 'ready' } }));
         } else {
           setTimeout(() => this.onmessage?.({ data: { id: msg.id, error: 'bad', log: 'line1\nline2' } }));
         }
@@ -49,5 +48,28 @@ describe('wasmTex', () => {
     vi.stubGlobal('Worker', MockWorker as any);
     const { compileToPdf } = await import('../src/lib/wasmTex');
     await expect(compileToPdf('hi')).rejects.toMatchObject({ stage: 'compile' });
+  });
+
+  it('times out when worker does not respond', async () => {
+    vi.useFakeTimers();
+    class MockWorker {
+      onmessage: ((ev: any) => void) | null = null;
+      postMessage(msg: any) {
+        if (!msg.id) {
+          setTimeout(() => this.onmessage?.({ data: { type: 'ready' } }), 0);
+        }
+      }
+      addEventListener(type: string, cb: any) {
+        if (type === 'message') this.onmessage = cb;
+      }
+      removeEventListener() {}
+      terminate() {}
+    }
+    vi.stubGlobal('Worker', MockWorker as any);
+    const { compileToPdf } = await import('../src/lib/wasmTex');
+    const promise = compileToPdf('hi', { timeoutMs: 5 });
+    vi.runAllTimers();
+    await expect(promise).rejects.toMatchObject({ stage: 'compile', message: 'timeout' });
+    vi.useRealTimers();
   });
 });

@@ -76,6 +76,15 @@ const PdfExportButton: React.FC<Props> = ({ getSource }) => {
             <DialogDescription>{error}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
+            <Button variant="link" asChild>
+              <a
+                href="https://github.com/ikanher/collatex#in-browser-pdf-busytex-wasm"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                BusyTeX setup
+              </a>
+            </Button>
             <Button variant="secondary" onClick={() => setDialogOpen(false)}>
               Close
             </Button>

@@ -63,19 +63,16 @@ Open `http://localhost:5173` and click **New Project**. Share the `/p/<token>`
 URL with a second tab to see real-time edits. The editor renders LaTeX directly
 in the browser via MathJax and exports PDFs client-side.
 
-### In-browser WASM PDF export
+### In-browser PDF (BusyTeX WASM)
 
-The **Export PDF** button runs BusyTeX (TeXLive compiled to WASM) directly in the
-browser. No source leaves your machine. Fetch the required assets once:
+Fetch the BusyTeX assets once:
 
 ```
 npm run fetch:busytex
 ```
 
-This downloads large WASM/data files into `apps/frontend/public/vendor/busytex/`
-(gitignored). `xetex` is used by default; pass `{ engine: 'pdftex' }` as an
-option to use the classic engine. Package coverage includes texlive-basic,
-latex-extra, latex-recommended, and science.
+Large WASM/data files are downloaded into `apps/frontend/public/vendor/busytex/`
+(gitignored).
 
 ## Architecture
 ```mermaid

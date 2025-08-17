@@ -9,22 +9,16 @@ export async function initBusyTeX(): Promise<BusyTexHandle> {
   handlePromise = new Promise((resolve, reject) => {
     try {
       const worker = new Worker('/vendor/busytex/busytex_worker.js');
-      const paths = {
+      const config = {
         busytex_pipeline_js: '/vendor/busytex/busytex_pipeline.js',
         busytex_wasm: '/vendor/busytex/busytex.wasm',
-        texlive_basic: '/vendor/busytex/texlive-basic.js',
-        texlive_ubuntu_latex_extra: '/vendor/busytex/ubuntu-texlive-latex-extra.js',
-        texlive_ubuntu_latex_recommended: '/vendor/busytex/ubuntu-texlive-latex-recommended.js',
-        texlive_ubuntu_science: '/vendor/busytex/ubuntu-texlive-science.js',
-        preload_data_packages_js: [
-          '/vendor/busytex/texlive-basic.js',
-        ],
         data_packages_js: [
           '/vendor/busytex/texlive-basic.js',
           '/vendor/busytex/ubuntu-texlive-latex-extra.js',
           '/vendor/busytex/ubuntu-texlive-latex-recommended.js',
           '/vendor/busytex/ubuntu-texlive-science.js',
         ],
+        preload_data_packages_js: ['/vendor/busytex/texlive-basic.js'],
         texmf_local: ['./texmf', './.texmf'],
       } as const;
       const onError = (err: any) => {
@@ -32,14 +26,13 @@ export async function initBusyTeX(): Promise<BusyTexHandle> {
       };
       worker.addEventListener('error', onError);
       worker.addEventListener('message', function onMessage(ev: MessageEvent<any>) {
-        // init phase responds with no pdf
-        if (ev.data && !('pdf' in ev.data)) {
+        if (ev.data && (ev.data.type === 'ready' || ev.data.ready)) {
           worker.removeEventListener('error', onError);
           worker.removeEventListener('message', onMessage);
           resolve({ worker });
         }
       });
-      worker.postMessage(paths as any);
+      worker.postMessage(config as any);
     } catch (err) {
       reject({ stage: 'init', message: String(err) });
     }
@@ -58,11 +51,7 @@ export async function compileToPdf(
   const logs: string[] = [];
 
   return new Promise<Blob>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      worker.terminate();
-      reject({ stage: 'compile', message: 'timeout' });
-    }, timeoutMs);
-
+    let timer: ReturnType<typeof setTimeout>;
     const onMessage = (ev: MessageEvent<any>) => {
       const data = ev.data;
       if (data?.log) logs.push(String(data.log));
@@ -72,8 +61,7 @@ export async function compileToPdf(
         clearTimeout(timer);
         worker.removeEventListener('message', onMessage);
         resolve(new Blob([data.pdf], { type: 'application/pdf' }));
-      }
-      if (data?.error) {
+      } else if (data?.error) {
         clearTimeout(timer);
         worker.removeEventListener('message', onMessage);
         reject({ stage: 'compile', message: data.error, log: logs.join('\n') });
@@ -81,13 +69,19 @@ export async function compileToPdf(
     };
     worker.addEventListener('message', onMessage);
 
+    timer = setTimeout(() => {
+      worker.removeEventListener('message', onMessage);
+      worker.terminate();
+      handlePromise = null;
+      reject({ stage: 'compile', message: 'timeout' });
+    }, timeoutMs);
+
     worker.postMessage({
       id,
       files: [{ path: 'main.tex', contents: tex }],
       main_tex_path: 'main.tex',
       driver: engine === 'xetex' ? 'xetex_bibtex8_dvipdfmx' : 'pdftex_bibtex8',
       verbose: 'silent',
-      data_packages_js: undefined,
       bibtex: false,
     });
   });
