@@ -71,6 +71,9 @@ Fetch the BusyTeX assets once:
 npm run fetch:busytex
 ```
 
+The fetch script automatically resolves and caches the latest BusyTeX release tag
+into `.busytex-tag`. Use `--fresh` to re-resolve.
+
 Large WASM/data files are downloaded into `apps/frontend/public/vendor/busytex/`
 (gitignored).
 
