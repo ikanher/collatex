@@ -1,6 +1,8 @@
 import http from 'http';
 import express from 'express';
 import { Server as WebSocketServer } from 'ws';
+import type { RawData } from 'ws';
+import * as decoding from 'lib0/decoding';
 // The utils module ships only JavaScript, so we import the file directly
 // and rely on our local declaration for types.
 // y-websocket exposes the utils subpath explicitly. Importing without the file
@@ -12,6 +14,8 @@ import crypto from 'crypto';
 
 type ProjectMeta = { locked: '0' | '1'; ownerKey: string; lastActivityAt: string };
 const projectKey = (token: string) => `collatex:project:${token}`;
+const messageSync = 0;
+const messageYjsUpdate = 2;
 
 async function getProject(
   redis: ReturnType<typeof createClient>,
@@ -189,17 +193,26 @@ export function createServer(): http.Server {
     // Touch activity on upgrade
     await setProject(redis, token, { lastActivityAt: String(nowMs()) });
     wss.handleUpgrade(req, socket, head, (ws) => {
-      // Touch activity on any message and enforce lock state
-      ws.on('message', async () => {
-        const meta = await getProject(redis, token);
-        if (meta?.locked === '1' && ownerKey !== meta.ownerKey) {
-          ws.close(1008, 'locked');
-          return;
-        }
-        await setProject(redis, token, { lastActivityAt: String(nowMs()) });
-      });
       setupWSConnection(ws, req);
       connectionsTotal.labels(token).inc();
+      const ywsListener = ws.listeners('message')[0] as (msg: RawData) => void;
+      ws.removeAllListeners('message');
+      ws.on('message', async (message: RawData) => {
+        const meta = await getProject(redis, token);
+        if (meta?.locked === '1' && ownerKey !== meta.ownerKey) {
+          const decoder = decoding.createDecoder(new Uint8Array(message as Uint8Array));
+          const messageType = decoding.readVarUint(decoder);
+          if (messageType === messageSync) {
+            const syncMessageType = decoding.readVarUint(decoder);
+            if (syncMessageType === messageYjsUpdate) {
+              ws.close(1008, 'locked');
+              return;
+            }
+          }
+        }
+        await setProject(redis, token, { lastActivityAt: String(nowMs()) });
+        ywsListener(message);
+      });
     });
   });
   return server;
