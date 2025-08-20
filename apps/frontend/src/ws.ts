@@ -9,11 +9,10 @@ export function connectWs(
   url: string = WS_URL,
   ownerKey = '',
 ) {
-  const finalUrl = ownerKey
-    ? `${url}?ownerKey=${encodeURIComponent(ownerKey)}`
-    : url;
-  logDebug('connectWs', `${finalUrl}/${token}`);
-  const provider = new WebsocketProvider(finalUrl, token, doc);
+  logDebug('connectWs', `${url}/${token}`);
+  const provider = new WebsocketProvider(url, token, doc, {
+    params: ownerKey ? { ownerKey } : {},
+  });
   provider.on('connection-close', (event: CloseEvent) => {
     if (event.code === 1008) {
       provider.shouldConnect = false;
