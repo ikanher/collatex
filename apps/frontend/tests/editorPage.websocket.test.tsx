@@ -29,10 +29,12 @@ vi.mock('y-websocket', () => ({
     url: string,
     room: string,
     doc: Y.Doc,
+    opts?: { params?: Record<string, string> },
   ) {
     this.url = `${url}/${room}`;
     this.awareness = new Awareness(doc);
     this.doc = doc;
+    this.opts = opts;
     this.destroy = vi.fn();
     this.on = vi.fn();
   }),
@@ -82,6 +84,23 @@ describe('EditorPage websocket', () => {
     text.insert(0, '$$a+b=c$$');
     await waitFor(() =>
       expect(getByTestId('preview').textContent).toContain('a+b=c'),
+    );
+  });
+
+  it('sends ownerKey via params when available', () => {
+    localStorage.setItem('collatex:ownerKey:fake', 'secret');
+    render(
+      <MemoryRouter initialEntries={['/p/fake']}>
+        <Routes>
+          <Route path="/p/:token" element={<EditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(WebsocketProvider).toHaveBeenCalledWith(
+      expect.any(String),
+      'fake',
+      expect.any(Y.Doc),
+      expect.objectContaining({ params: { ownerKey: 'secret' } }),
     );
   });
 });
