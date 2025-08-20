@@ -20,6 +20,7 @@ interface Props {
   onLockedChange?: (locked: boolean) => void;
   locked?: boolean;
   readOnly?: boolean;
+  ownerKey?: string;
 }
 
 const fillParent = EditorView.theme({
@@ -30,7 +31,18 @@ const fillParent = EditorView.theme({
 
 const SEED_HINT = 'Type TeX math like \\(e^{i\\pi}+1=0\\) or $$\\int_0^1 x^2\\,dx$$';
 
-const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDocChange, onViewerChange, onLockedChange, locked = false, readOnly = false }) => {
+const CodeMirror: React.FC<Props> = ({
+  token,
+  gatewayWS,
+  onReady,
+  onChange,
+  onDocChange,
+  onViewerChange,
+  onLockedChange,
+  locked = false,
+  readOnly = false,
+  ownerKey = '',
+}) => {
   const ref = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView>();
   const ydocRef = useRef<Y.Doc>(new Y.Doc());
@@ -63,7 +75,7 @@ const CodeMirror: React.FC<Props> = ({ token, gatewayWS, onReady, onChange, onDo
     const ydoc = ydocRef.current;
     let provider: WebsocketProvider | undefined;
     try {
-      provider = connectWs(ydoc, token, gatewayWS);
+      provider = connectWs(ydoc, token, gatewayWS, ownerKey);
       logDebug('CodeMirror provider', `${gatewayWS}/${token}`);
     } catch (err) {
       if (window.location.hostname !== 'localhost') {

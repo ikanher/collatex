@@ -28,13 +28,14 @@ vi.mock('../src/components/CodeMirror', () => {
   const text = doc.getText('doc');
   return {
     __esModule: true,
-    default: ({ onReady }: any) => {
+    default: ({ onReady, readOnly }: any) => {
       React.useEffect(() => {
         onReady?.(text);
       }, [onReady]);
       return (
         <input
           data-testid="cm"
+          readOnly={readOnly}
           onChange={(e) => {
             text.delete(0, text.length);
             text.insert(0, e.target.value);
@@ -65,6 +66,7 @@ describe('EditorPage', () => {
       'fetch',
       vi.fn().mockResolvedValue({ ok: true, json: async () => ({ locked: false }) }),
     );
+    localStorage.clear();
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -133,5 +135,23 @@ describe('EditorPage', () => {
     await findByText('Locked');
     expect(queryByText('Unlock')).toBeNull();
     expect(queryByText('Lock')).toBeNull();
+  });
+
+  it('allows owner to edit when locked', async () => {
+    localStorage.setItem('collatex:ownerKey:token', 'secret');
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => ({ locked: true }),
+    });
+    const { getByTestId, findByText } = render(
+      <MemoryRouter initialEntries={['/p/token']}>
+        <Routes>
+          <Route path="/p/:token" element={<EditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await findByText('Locked');
+    const input = getByTestId('cm');
+    expect(input).not.toHaveAttribute('readOnly');
   });
 });

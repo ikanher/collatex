@@ -172,6 +172,7 @@ export function createServer(): http.Server {
     const url = new URL(req.url || '/', 'http://localhost');
     const match = url.pathname.match(/^\/yjs\/([\w-]+)/);
     const token = match ? match[1] : null;
+    const ownerKey = url.searchParams.get('ownerKey') ?? '';
     if (!token) {
       socket.destroy();
       return;
@@ -191,7 +192,7 @@ export function createServer(): http.Server {
       // Touch activity on any message and enforce lock state
       ws.on('message', async () => {
         const meta = await getProject(redis, token);
-        if (meta?.locked === '1') {
+        if (meta?.locked === '1' && ownerKey !== meta.ownerKey) {
           ws.close(1008, 'locked');
           return;
         }

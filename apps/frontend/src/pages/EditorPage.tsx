@@ -155,7 +155,8 @@ const EditorPage: React.FC = () => {
               onViewerChange={setViewerCount}
               onLockedChange={setLocked}
               locked={locked}
-              readOnly={locked}
+              readOnly={locked && !ownerKey}
+              ownerKey={ownerKey}
             />
           </div>
         </section>

@@ -57,6 +57,7 @@ describe('EditorPage websocket', () => {
       'fetch',
       vi.fn().mockResolvedValue({ ok: true, json: async () => ({ locked: false }) }),
     );
+    localStorage.clear();
   });
   afterEach(() => {
     vi.clearAllMocks();
