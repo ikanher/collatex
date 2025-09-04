@@ -1,6 +1,6 @@
 # CollaTeX — AGENTS
 
-_Last updated: 2025-07-26_
+_Last updated: 2025-07-27_
 
 ## Global principles
 - **Scope first, code second.** Collaborative text editing with MathJax preview.
@@ -38,6 +38,9 @@ _Last updated: 2025-07-26_
 
 **Deliverables**
 - For dev: run `y-websocket` server (no custom code required).
+- Health check endpoint.
+- Environment variable configuration.
+- Optional persistence toggle (e.g., Redis).
 - Later: wrap/extend with a small TS server if needed.
 
 **Acceptance**
@@ -60,10 +63,16 @@ _Last updated: 2025-07-26_
 **Goal**: Tests.
 
 **Deliverables**
-- Jest/Vitest suites; a WS smoke test script.
+- Jest/Vitest suites.
+- WebSocket smoke test script.
+- Load testing for WebSocket.
+- Frontend end-to-end test script.
 
 **Acceptance**
 - Tests run locally (`make test`) and pass.
+
+**How to verify**
+- `make lint` and `make test` run without failures.
 
 ## 5) Infra Agent (no Docker)
 **Goal**: Dev ergonomics + CI.
